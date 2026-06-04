@@ -23,11 +23,12 @@ function showLoginScreen(show) {
 
 firebase.auth().onAuthStateChanged(user => {
   if (user) {
-    // 已登入
+    // 已登入 → 隱藏登入畫面，從雲端載入資料
     showLoginScreen(false);
-    // 更新頂部使用者名稱
     const syncLabel = document.getElementById('sync-label');
     if (syncLabel) syncLabel.textContent = user.displayName || '已登入';
+    // 登入後才同步雲端資料
+    if (typeof cloudLoad === 'function') cloudLoad();
   } else {
     // 未登入 → 顯示登入畫面
     showLoginScreen(true);

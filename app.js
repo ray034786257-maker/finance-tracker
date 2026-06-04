@@ -1216,9 +1216,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('cat-confirm-btn').addEventListener('click', confirmCat);
 
   renderAll();
-
-  // 雲端同步：從 Firestore 載入最新資料
-  cloudLoad();
+  // 雲端同步由 firebase-config.js 的 onAuthStateChanged 觸發
 });
 
 // ── 刪除記錄 ─────────────────────────────────────────────
