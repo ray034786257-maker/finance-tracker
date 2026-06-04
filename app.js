@@ -264,31 +264,41 @@ async function cloudLoad() {
   setSyncStatus('syncing');
   try {
     const data = await window.cloudSync.loadAll();
-    if (!data || !data.transactions || data.transactions.length === 0) {
-      // 雲端無資料 → 把本地資料推上去
-      cloudSave();
-      setSyncStatus('ok');
+    if (!data || !data.transactions || data.transactions.length < 5) {
+      // 雲端無資料或資料太少 → 把本地資料推上去
+      if (transactions.length > 0) {
+        await cloudSave();
+        setSyncStatus('ok');
+      } else {
+        setSyncStatus('offline');
+      }
       return;
     }
-    // 雲端有資料 → 以雲端為主覆蓋本地
-    transactions = data.transactions;
-    categories   = data.categories   || categories;
-    budgets      = data.budgets      || budgets;
-    stockTxs     = data.stockTxs     || stockTxs;
-    dividends    = data.dividends    || dividends;
-    stockPrices  = data.stockPrices  || stockPrices;
-    recurring    = data.recurring    || recurring;
-    // 同步回 localStorage
-    save('fin_tx', transactions);
-    save('fin_cats', categories);
-    save('fin_budgets', budgets);
-    save('fin_stock_tx', stockTxs);
-    save('fin_dividends', dividends);
-    save('fin_stock_prices', stockPrices);
-    save('fin_recurring', recurring);
-    setSyncStatus('ok');
-    renderAll();
+    // 雲端有資料（以筆數較多者為主）
+    if (data.transactions.length >= transactions.length) {
+      transactions = data.transactions;
+      categories   = data.categories   || categories;
+      budgets      = data.budgets      || budgets;
+      stockTxs     = data.stockTxs     || stockTxs;
+      dividends    = data.dividends    || dividends;
+      stockPrices  = data.stockPrices  || stockPrices;
+      recurring    = data.recurring    || recurring;
+      save('fin_tx',          transactions);
+      save('fin_cats',        categories);
+      save('fin_budgets',     budgets);
+      save('fin_stock_tx',    stockTxs);
+      save('fin_dividends',   dividends);
+      save('fin_stock_prices',stockPrices);
+      save('fin_recurring',   recurring);
+      setSyncStatus('ok');
+      renderAll();
+    } else {
+      // 本地資料比雲端多 → 推上去
+      await cloudSave();
+      setSyncStatus('ok');
+    }
   } catch(e) {
+    console.error('[cloudLoad]', e);
     setSyncStatus('error');
   }
 }
