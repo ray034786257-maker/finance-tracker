@@ -246,7 +246,11 @@ function setSyncStatus(status) {
 
 function cloudSave() {
   if (!window.cloudSync) return;
+  // 未登入時不儲存（頁面初始化階段）
+  try { if (!firebase.auth().currentUser) return; } catch(e) { return; }
   setSyncStatus('syncing');
+  // 安全取值（避免變數尚未宣告時出錯）
+  const _recurring = typeof recurring !== 'undefined' ? recurring : [];
   Promise.all([
     window.cloudSync.save('transactions', transactions),
     window.cloudSync.save('categories',   categories),
@@ -254,9 +258,9 @@ function cloudSave() {
     window.cloudSync.save('stockTxs',     stockTxs),
     window.cloudSync.save('dividends',    dividends),
     window.cloudSync.save('stockPrices',  stockPrices),
-    window.cloudSync.save('recurring',    recurring),
+    window.cloudSync.save('recurring',    _recurring),
   ]).then(() => setSyncStatus('ok'))
-    .catch(() => setSyncStatus('error'));
+    .catch(e => { console.error('[cloudSave]', e); setSyncStatus('error'); });
 }
 
 async function cloudLoad() {
