@@ -640,7 +640,7 @@ function checkMonthlyReminder() {
   const d = new Date();
   const day = d.getDate();
   if (day > 5) return; // 只在每月 1~5 號顯示
-  const flagKey = 'fin_reminder_' + monthStr(d);
+  const flagKey = 'fin_reminder_' + mStr(d);
   if (localStorage.getItem(flagKey)) return;
   const names = recurring.map(r => r.name).join('、');
   const el    = document.getElementById('reminder-banner');
