@@ -226,6 +226,7 @@ function persistStock() {
   save('fin_stock_tx', stockTxs);
   save('fin_dividends', dividends);
   save('fin_stock_prices', stockPrices);
+  if (stockDividends) save('fin_stock_dividends', stockDividends);
   cloudSave();
 }
 
@@ -329,16 +330,21 @@ const groupByCat = txs => {
 
 // ── 狀態 ─────────────────────────────────────────────────
 // ── 股票資料存取 ─────────────────────────────────────────
-let stockTxs    = load('fin_stock_tx', []);       // 買賣記錄
-let dividends   = load('fin_dividends', []);       // 股息記錄
-let stockPrices = load('fin_stock_prices', {});    // { code: currentPrice }
+let stockTxs       = load('fin_stock_tx', []);          // 買賣記錄
+let dividends      = load('fin_dividends', []);          // 股息記錄
+let stockPrices    = load('fin_stock_prices', {});       // { code: currentPrice }
+let stockDividends = load('fin_stock_dividends', null);  // 配息資訊（null = 尚未從網路更新）
 
-// 從 prices.js 自動載入最新股價
+// 從 prices.js 自動載入最新股價與預設配息資料
 function applyExternalPrices() {
   if (!window.STOCK_PRICES) return;
   Object.entries(window.STOCK_PRICES).forEach(([code, price]) => {
     stockPrices[code] = price;
   });
+  // 若 localStorage 無配息資料，使用 prices.js 的靜態預設值
+  if (!stockDividends && window.STOCK_DIVIDENDS) {
+    stockDividends = { ...window.STOCK_DIVIDENDS };
+  }
   persistStock();
 }
 
@@ -740,7 +746,7 @@ function renderInvest() {
 
   // 配息資訊表
   const divInfoEl = document.getElementById('dividend-info-rows');
-  const divData   = window.STOCK_DIVIDENDS || {};
+  const divData   = stockDividends || window.STOCK_DIVIDENDS || {};
   // 先算各股動態殖利率
   const calcYield = (code, cur) => {
     const info = divData[code] || {};
@@ -834,6 +840,30 @@ function updatePrice(code, val) {
   document.getElementById('inv-value').textContent = fmt(Math.round(totalValue));
 }
 
+// 從 Yahoo Finance 抓單支股票的配息歷史，回傳 { lastDiv, timesPerYear, frequency }
+async function fetchDividendInfo(code) {
+  const yUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${code}.TW?interval=1d&range=2y&events=dividends`;
+  const res  = await fetch(`https://corsproxy.io/?${encodeURIComponent(yUrl)}`);
+  const data = await res.json();
+  const result = data?.chart?.result?.[0];
+  if (!result?.events?.dividends) return null;
+
+  const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
+  const divList = Object.values(result.events.dividends)
+    .map(d => ({ amount: parseFloat(d.amount) || 0, date: d.date * 1000 }))
+    .filter(d => d.amount > 0)
+    .sort((a, b) => b.date - a.date); // 最新排前
+
+  if (!divList.length) return null;
+
+  const recentCount = divList.filter(d => d.date >= oneYearAgo).length;
+  const timesPerYear = recentCount >= 10 ? 12 : recentCount >= 3 ? 4 : recentCount >= 2 ? 2 : 1;
+  const frequency    = timesPerYear === 12 ? '每月配息' : timesPerYear === 4 ? '每季配息' : timesPerYear === 2 ? '每半年配息' : '每年配息';
+  const lastDiv      = Math.round(divList[0].amount * 1000) / 1000;
+
+  return { lastDiv, timesPerYear, frequency };
+}
+
 async function refreshPrices() {
   const btn = document.getElementById('btn-refresh-prices');
   if (btn) { btn.textContent = '🔄 更新中…'; btn.disabled = true; }
@@ -844,10 +874,10 @@ async function refreshPrices() {
     return;
   }
 
-  const newPrices = {};
+  const newPrices     = {};
   const newPrevPrices = {};
 
-  // ── 方法一：台灣證交所即時行情 ──
+  // ── 方法一：台灣證交所即時行情（股價 + 昨日收盤）──
   try {
     const ex_ch = codes.map(c => `tse_${c}.tw`).join('%7C');
     const res = await fetch(
@@ -864,22 +894,49 @@ async function refreshPrices() {
     console.warn('[refreshPrices] 證交所即時 API 失敗:', e.message);
   }
 
-  // ── 方法二：Yahoo Finance + CORS Proxy（補足缺失的） ──
+  // ── 方法二：Yahoo Finance + CORS Proxy（補足缺失的股價，並同步抓配息）──
   const missing = codes.filter(c => !newPrices[c]);
-  for (const code of missing) {
-    try {
-      const yUrl  = `https://query1.finance.yahoo.com/v8/finance/chart/${code}.TW?interval=1d&range=2d`;
-      const res   = await fetch(`https://corsproxy.io/?${encodeURIComponent(yUrl)}`);
-      const data  = await res.json();
-      const meta  = data?.chart?.result?.[0]?.meta;
-      if (meta) {
-        if (meta.regularMarketPrice > 0) newPrices[code]     = Math.round(meta.regularMarketPrice * 100) / 100;
-        if (meta.previousClose > 0)      newPrevPrices[code] = Math.round(meta.previousClose * 100) / 100;
-      }
-    } catch(e) {
-      console.warn(`[refreshPrices] Yahoo Finance 失敗 ${code}:`, e.message);
+  const yResults = await Promise.allSettled(codes.map(async code => {
+    const needPrice = missing.includes(code);
+    const yUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${code}.TW?interval=1d&range=2y&events=dividends`;
+    const res  = await fetch(`https://corsproxy.io/?${encodeURIComponent(yUrl)}`);
+    const data = await res.json();
+    const result = data?.chart?.result?.[0];
+    const meta   = result?.meta;
+
+    // 股價（只補缺）
+    if (needPrice && meta?.regularMarketPrice > 0)
+      newPrices[code]     = Math.round(meta.regularMarketPrice * 100) / 100;
+    if (needPrice && meta?.previousClose > 0)
+      newPrevPrices[code] = Math.round(meta.previousClose * 100) / 100;
+
+    // 配息
+    const divEvents = result?.events?.dividends;
+    if (!divEvents) return { code, divInfo: null };
+
+    const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
+    const divList = Object.values(divEvents)
+      .map(d => ({ amount: parseFloat(d.amount) || 0, date: d.date * 1000 }))
+      .filter(d => d.amount > 0)
+      .sort((a, b) => b.date - a.date);
+
+    if (!divList.length) return { code, divInfo: null };
+
+    const recentCount  = divList.filter(d => d.date >= oneYearAgo).length;
+    const timesPerYear = recentCount >= 10 ? 12 : recentCount >= 3 ? 4 : recentCount >= 2 ? 2 : 1;
+    const frequency    = timesPerYear === 12 ? '每月配息' : timesPerYear === 4 ? '每季配息' : timesPerYear === 2 ? '每半年配息' : '每年配息';
+    const lastDiv      = Math.round(divList[0].amount * 1000) / 1000;
+
+    return { code, divInfo: { lastDiv, timesPerYear, frequency } };
+  }));
+
+  // 整合配息結果
+  const newDividends = { ...(stockDividends || window.STOCK_DIVIDENDS || {}) };
+  yResults.forEach(r => {
+    if (r.status === 'fulfilled' && r.value?.divInfo) {
+      newDividends[r.value.code] = r.value.divInfo;
     }
-  }
+  });
 
   const successCount = codes.filter(c => newPrices[c]).length;
 
@@ -888,14 +945,21 @@ async function refreshPrices() {
     window.STOCK_PREV_PRICES = { ...(window.STOCK_PREV_PRICES || {}), ...newPrevPrices };
     const now = new Date();
     window.PRICES_UPDATED = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  }
+
+  // 不論股價是否成功，只要有配息資料就更新
+  const divUpdated = yResults.some(r => r.status === 'fulfilled' && r.value?.divInfo);
+  if (divUpdated) stockDividends = newDividends;
+
+  if (successCount > 0 || divUpdated) {
     persistStock();
     renderInvest();
   }
 
   if (btn) { btn.textContent = '🔄 更新股價'; btn.disabled = false; }
 
-  if (successCount === 0) {
-    alert('無法取得即時股價\n\n可能原因：\n• 非台股交易時間（09:00–13:30）\n• 網路或 CORS 問題\n\n請稍後再試');
+  if (successCount === 0 && !divUpdated) {
+    alert('無法取得資料\n\n可能原因：\n• 非台股交易時間（09:00–13:30）\n• 網路或 CORS 問題\n\n請稍後再試');
   }
 }
 
