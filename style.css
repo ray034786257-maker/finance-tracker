@@ -434,33 +434,19 @@ body {
     padding: 13px 14px;
     gap: 3px 10px;
   }
-  /* 分類 → 第一行左 */
-  .tx-row > span:nth-child(3) { grid-column: 1; grid-row: 1; }
-  /* 金額 → 第一行右，放大 */
-  .tx-row > span:nth-child(5) {
-    grid-column: 2; grid-row: 1;
-    text-align: right; font-size: 16px;
-    align-self: center;
-  }
-  /* 備註 → 第二行左 */
-  .tx-row > span:nth-child(4) {
+  /* 第一行：分類（左）、金額（右） */
+  .tx-row .col-cat    { grid-column: 1; grid-row: 1; }
+  .tx-row .col-amount { grid-column: 2; grid-row: 1; text-align: right; font-size: 16px; align-self: center; }
+  /* 第二行：備註（左）、類型badge（右） */
+  .tx-row .col-note {
     grid-column: 1; grid-row: 2;
-    display: block; font-size: 12px;
-    color: var(--text2); line-height: 1.4;
+    font-size: 12px; color: var(--text2); line-height: 1.4;
   }
-  /* 類型badge → 第二行右 */
-  .tx-row > span:nth-child(2) { grid-column: 2; grid-row: 2; text-align: right; }
-  /* 日期 → 第三行左，縮小 */
-  .tx-row > span:nth-child(1) {
-    grid-column: 1; grid-row: 3;
-    font-size: 11px; color: var(--text3);
-    align-self: center;
-  }
-  /* 操作按鈕 → 第三行右 */
-  .tx-row > span:nth-child(6) {
-    grid-column: 2; grid-row: 3;
-    display: flex; justify-content: flex-end; align-items: center; gap: 2px;
-  }
+  .tx-row .col-note-empty { display: none; } /* 無備註時不佔版面 */
+  .tx-row .col-type   { grid-column: 2; grid-row: 2; text-align: right; align-self: start; }
+  /* 第三行：日期（左）、操作按鈕（右） */
+  .tx-row .col-date   { grid-column: 1; grid-row: 3; font-size: 11px; color: var(--text3); align-self: center; }
+  .tx-row .col-actions { grid-column: 2; grid-row: 3; display: flex; justify-content: flex-end; align-items: center; gap: 2px; }
 
   /* 記帳明細：標題與篩選列直向排列 */
   #ledger-header { flex-direction: column; align-items: flex-start; gap: 8px; }

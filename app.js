@@ -1150,9 +1150,9 @@ function renderTable() {
       const catBg = cat.color+'22';
       return `<div class="tx-row" data-id="${t.id}">
         <span class="col-date">${t.date}</span>
-        <span><span class="type-badge ${t.type}">${typeLbl}</span></span>
-        <span><span class="cat-badge" style="background:${catBg};color:${cat.color}">${cat.icon} ${cat.name}</span></span>
-        <span style="color:var(--text2)">${t.note ? esc(t.note) : '<span style="color:var(--text3)">—</span>'}</span>
+        <span class="col-type"><span class="type-badge ${t.type}">${typeLbl}</span></span>
+        <span class="col-cat"><span class="cat-badge" style="background:${catBg};color:${cat.color}">${cat.icon} ${cat.name}</span></span>
+        <span class="col-note">${t.note ? esc(t.note) : '<span class="col-note-empty">—</span>'}</span>
         <span class="col-amount ${t.type}">${sign}${fmt(t.amount)}</span>
         <span class="col-actions">
           <button class="icon-btn" onclick="openEditModal('${t.id}')">✏️</button>
