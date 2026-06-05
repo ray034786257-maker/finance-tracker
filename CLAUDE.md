@@ -23,6 +23,7 @@ finance-tracker/
 | `fin_stock_tx` | 股票買賣記錄 `[{id, type, code, name, shares, price, fee, date, note}]` |
 | `fin_dividends` | 股息記錄 `[{id, code, name, date, perShare, shares, total, note}]` |
 | `fin_stock_prices` | 股票現價 `{code: price}` |
+| `fin_stock_dividends_v3` | 配息資訊 `{code: {lastDiv, timesPerYear, frequency}}`（v3 = 最新版） |
 | `fin_imported_2026_v4` | 匯入版本 flag |
 | `fin_stocks_imported_v1` | 股票初始匯入 flag |
 
@@ -64,6 +65,18 @@ finance-tracker/
 | 00878 | 國泰永續高股息 | 國泰 |
 | 009816 | 凱基台灣TOP50 | 國泰 |
 
+## prices.js 結構（每日排程自動覆寫）
+```javascript
+window.STOCK_PRICES      = { code: price }           // 今日股價
+window.STOCK_PREV_PRICES = { code: prevPrice }        // 昨日收盤（用於漲跌幅）
+window.STOCK_DIVIDENDS   = { code: { lastDiv, timesPerYear, frequency } }
+window.PRICES_UPDATED    = "YYYY-MM-DD HH:MM"
+```
+- `lastDiv`：最近一次單次配息金額（元/股）
+- `timesPerYear`：每年配息次數（1/2/4/12）
+- 年化殖利率由 app.js 動態計算：`lastDiv × timesPerYear / 現價 × 100%`
+- 更新排程時需同時更新 `STOCK_PREV_PRICES`（昨收）才能顯示今日漲跌幅
+
 ## 每日排程
 - **daily-stock-price-update**：每天 09:00 自動查詢股價並更新 `prices.js`
 
@@ -72,9 +85,28 @@ finance-tracker/
 2. 將 flag `fin_imported_2026_vN` 的版本號 +1
 3. 使用者開啟頁面後在 Console 執行 `localStorage.clear()` 再重整即可
 
+## 投資追蹤功能說明
+- **更新股價按鈕**：優先呼叫台灣證交所即時 API（`mis.twse.com.tw`），備援 Yahoo Finance + corsproxy.io
+  - 同時更新今日漲跌幅（需 `STOCK_PREV_PRICES`）及配息資訊（抓 2 年歷史自動計算頻率）
+- **持倉表格欄位**：股票 / 股數 / 平均成本 / 現價（可編輯）/ 今日漲跌 / 市值 / 未實現損益 / 報酬率
+- **配息資訊欄位**：股票 / 現價 / 配息頻率 / 年化殖利率 / 最近單次配息 / 預估年配息 / 佔比
+- 現價手動編輯後，市值/損益/報酬率即時更新（不需重整）
+
+## 可收放的區塊
+以下區塊預設收起，點標題列展開：
+- 月份比較（`toggleSection('cmp-section-body','cmp-toggle-icon')`）
+- 固定費用管理（`toggleSection('rec-section-body','rec-toggle-icon')`）
+- 分類管理（`toggleCatSection()`）
+
+## 手機版重點
+- 記帳明細 tx-row 使用明確 class（`col-type` / `col-cat` / `col-note` / `col-amount` / `col-actions`）勿改回 nth-child
+- 手機版卡片排版：第1行=分類+金額、第2行=備註+類型badge、第3行=日期+按鈕
+- 篩選列 ID 為 `ledger-header`，手機版直向排列
+
 ## 重要注意事項
 - 凱擘大寬頻 → 分類應為 `c7`（水電通訊），不是住房
 - 電競筆電分期已於 2026/6/1（第6期）繳清，之後不再記錄
 - 給李幸津的每月8000元已於 2026/3/1（第12期）繳清
 - 機車分期每月3000元（部分月份補繳），24期中目前已繳至第20期（2026/6）
 - 月份預算功能已移除（使用者不需要）
+- `fin_stock_dividends` localStorage key 升版時需同步更新 app.js 兩處（load 和 save）
