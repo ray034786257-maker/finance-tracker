@@ -18,11 +18,12 @@ window.STOCK_PREV_PRICES = {
 };
 window.STOCK_DIVIDENDS = {
   // timesPerYear: 每年配息次數；lastDiv: 最近一次單次配息金額（元/股）
-  "0050":   { lastDiv: 3.50,  timesPerYear: 1,  frequency: '每年配息' },
-  "0056":   { lastDiv: 0.95,  timesPerYear: 4,  frequency: '每季配息' },
-  "00918":  { lastDiv: 0.62,  timesPerYear: 4,  frequency: '每季配息' },
-  "006208": { lastDiv: 6.30,  timesPerYear: 1,  frequency: '每年配息' },
-  "00878":  { lastDiv: 0.55,  timesPerYear: 4,  frequency: '每季配息' },
-  "009816": { lastDiv: 0.17,  timesPerYear: 4,  frequency: '每季配息' }
+  // 資料來源：wantgoo.com，更新日期：2026-06-05
+  "0050":   { lastDiv: 1.00,  timesPerYear: 2,  frequency: '每半年配息' }, // 2026/01 配 $1.00，每半年配一次
+  "0056":   { lastDiv: 0.866, timesPerYear: 4,  frequency: '每季配息'   }, // 2026/04 配 $0.866，每季穩定配
+  "00918":  { lastDiv: 0.62,  timesPerYear: 4,  frequency: '每季配息'   }, // 2026/xx 配 $0.62
+  "006208": { lastDiv: 3.448, timesPerYear: 2,  frequency: '每半年配息' }, // 2025/11 配 $3.448，每半年配一次
+  "00878":  { lastDiv: 0.66,  timesPerYear: 4,  frequency: '每季配息'   }, // 2026/05 配 $0.66
+  "009816": { lastDiv: 0.17,  timesPerYear: 4,  frequency: '每季配息'   }  // 新 ETF，暫無更多資料
 };
 window.PRICES_UPDATED = "2026-06-04 14:30";

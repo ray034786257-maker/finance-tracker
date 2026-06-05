@@ -226,7 +226,7 @@ function persistStock() {
   save('fin_stock_tx', stockTxs);
   save('fin_dividends', dividends);
   save('fin_stock_prices', stockPrices);
-  if (stockDividends) save('fin_stock_dividends_v2', stockDividends);
+  if (stockDividends) save('fin_stock_dividends_v3', stockDividends);
   cloudSave();
 }
 
@@ -333,7 +333,7 @@ const groupByCat = txs => {
 let stockTxs       = load('fin_stock_tx', []);          // 買賣記錄
 let dividends      = load('fin_dividends', []);          // 股息記錄
 let stockPrices    = load('fin_stock_prices', {});       // { code: currentPrice }
-let stockDividends = load('fin_stock_dividends_v2', null);  // 配息資訊（v2 修正 00918 為季配 $0.62）
+let stockDividends = load('fin_stock_dividends_v3', null);  // 配息資訊（v2 修正 00918 為季配 $0.62）
 
 // 從 prices.js 自動載入最新股價與預設配息資料
 function applyExternalPrices() {
