@@ -834,23 +834,69 @@ function updatePrice(code, val) {
   document.getElementById('inv-value').textContent = fmt(Math.round(totalValue));
 }
 
-function refreshPrices() {
+async function refreshPrices() {
   const btn = document.getElementById('btn-refresh-prices');
   if (btn) { btn.textContent = '🔄 更新中…'; btn.disabled = true; }
-  const old = document.querySelector('script[src^="prices.js"]');
-  if (old) old.remove();
-  const s = document.createElement('script');
-  s.src = 'prices.js?t=' + Date.now();
-  s.onload = () => {
-    applyExternalPrices();
+
+  const codes = Object.keys(calcHoldings());
+  if (!codes.length) {
+    if (btn) { btn.textContent = '🔄 更新股價'; btn.disabled = false; }
+    return;
+  }
+
+  const newPrices = {};
+  const newPrevPrices = {};
+
+  // ── 方法一：台灣證交所即時行情 ──
+  try {
+    const ex_ch = codes.map(c => `tse_${c}.tw`).join('%7C');
+    const res = await fetch(
+      `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${ex_ch}&json=1&delay=0`
+    );
+    const data = await res.json();
+    (data.msgArray || []).forEach(s => {
+      const p = s.z !== '-' ? parseFloat(s.z) : NaN;
+      const y = parseFloat(s.y);
+      if (!isNaN(p) && p > 0) newPrices[s.c]     = Math.round(p * 100) / 100;
+      if (!isNaN(y) && y > 0) newPrevPrices[s.c] = Math.round(y * 100) / 100;
+    });
+  } catch(e) {
+    console.warn('[refreshPrices] 證交所即時 API 失敗:', e.message);
+  }
+
+  // ── 方法二：Yahoo Finance + CORS Proxy（補足缺失的） ──
+  const missing = codes.filter(c => !newPrices[c]);
+  for (const code of missing) {
+    try {
+      const yUrl  = `https://query1.finance.yahoo.com/v8/finance/chart/${code}.TW?interval=1d&range=2d`;
+      const res   = await fetch(`https://corsproxy.io/?${encodeURIComponent(yUrl)}`);
+      const data  = await res.json();
+      const meta  = data?.chart?.result?.[0]?.meta;
+      if (meta) {
+        if (meta.regularMarketPrice > 0) newPrices[code]     = Math.round(meta.regularMarketPrice * 100) / 100;
+        if (meta.previousClose > 0)      newPrevPrices[code] = Math.round(meta.previousClose * 100) / 100;
+      }
+    } catch(e) {
+      console.warn(`[refreshPrices] Yahoo Finance 失敗 ${code}:`, e.message);
+    }
+  }
+
+  const successCount = codes.filter(c => newPrices[c]).length;
+
+  if (successCount > 0) {
+    Object.assign(stockPrices, newPrices);
+    window.STOCK_PREV_PRICES = { ...(window.STOCK_PREV_PRICES || {}), ...newPrevPrices };
+    const now = new Date();
+    window.PRICES_UPDATED = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    persistStock();
     renderInvest();
-    if (btn) { btn.textContent = '🔄 更新股價'; btn.disabled = false; }
-  };
-  s.onerror = () => {
-    if (btn) { btn.textContent = '🔄 更新股價'; btn.disabled = false; }
-    alert('股價更新失敗，請確認網路或稍後再試');
-  };
-  document.head.appendChild(s);
+  }
+
+  if (btn) { btn.textContent = '🔄 更新股價'; btn.disabled = false; }
+
+  if (successCount === 0) {
+    alert('無法取得即時股價\n\n可能原因：\n• 非台股交易時間（09:00–13:30）\n• 網路或 CORS 問題\n\n請稍後再試');
+  }
 }
 
 function deleteStockTx(id) {
