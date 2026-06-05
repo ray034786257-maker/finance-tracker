@@ -20,7 +20,7 @@ window.STOCK_DIVIDENDS = {
   // timesPerYear: 每年配息次數；lastDiv: 最近一次單次配息金額（元/股）
   "0050":   { lastDiv: 3.50,  timesPerYear: 1,  frequency: '每年配息' },
   "0056":   { lastDiv: 0.95,  timesPerYear: 4,  frequency: '每季配息' },
-  "00918":  { lastDiv: 0.26,  timesPerYear: 12, frequency: '每月配息' },
+  "00918":  { lastDiv: 0.62,  timesPerYear: 4,  frequency: '每季配息' },
   "006208": { lastDiv: 6.30,  timesPerYear: 1,  frequency: '每年配息' },
   "00878":  { lastDiv: 0.55,  timesPerYear: 4,  frequency: '每季配息' },
   "009816": { lastDiv: 0.17,  timesPerYear: 4,  frequency: '每季配息' }
