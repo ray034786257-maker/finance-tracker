@@ -687,18 +687,25 @@ function renderInvest() {
   if (!holdEntries.length) {
     holdEl.innerHTML = '<div class="empty-state">尚無持倉，點「＋ 新增交易」買入股票</div>';
   } else {
+    const prevPrices = window.STOCK_PREV_PRICES || {};
     holdEl.innerHTML = holdEntries.map(([code, h]) => {
       const avgC = h.shares > 0 ? h.totalCost / h.shares : 0;
       const cur  = parseFloat(stockPrices[code] || 0);
+      const prev = parseFloat(prevPrices[code] || 0);
       const mval = cur * h.shares;
       const pnl  = mval - h.totalCost;
       const pct  = h.totalCost > 0 ? (pnl / h.totalCost * 100) : 0;
+      const daily = cur && prev ? (cur - prev) / prev * 100 : null;
+      const dailyHTML = daily !== null
+        ? `<span class="${pnlClass(daily)}">${pnlSign(daily)}${daily.toFixed(2)}%</span>`
+        : '—';
       return `<div class="holding-row">
         <div><div class="stock-name">${esc(h.name)}</div><div class="stock-code">${esc(code)}</div></div>
         <div>${fmtN(h.shares)}</div>
         <div>$${fmtN(Math.round(avgC))}</div>
-        <div><input class="price-input" type="number" step="0.01" value="${cur||''}" placeholder="輸入現價"
+        <div><input class="price-input" data-code="${esc(code)}" type="number" step="0.01" value="${cur||''}" placeholder="輸入現價"
           onchange="updatePrice('${esc(code)}', this.value)" oninput="updatePrice('${esc(code)}', this.value)"></div>
+        <div>${dailyHTML}</div>
         <div>${cur ? fmt(Math.round(mval)) : '—'}</div>
         <div class="${pnlClass(pnl)}">${cur ? pnlSign(pnl)+fmt(Math.round(pnl)) : '—'}</div>
         <div class="${pnlClass(pct)}">${cur ? pnlSign(pct)+pct.toFixed(2)+'%' : '—'}</div>
@@ -734,34 +741,45 @@ function renderInvest() {
   // 配息資訊表
   const divInfoEl = document.getElementById('dividend-info-rows');
   const divData   = window.STOCK_DIVIDENDS || {};
+  // 先算各股動態殖利率
+  const calcYield = (code, cur) => {
+    const info = divData[code] || {};
+    if (!cur || !info.lastDiv) return 0;
+    const times = info.timesPerYear || 1;
+    return info.lastDiv * times / cur * 100;
+  };
+  const calcAnnual = (code, cur, shares) => {
+    const info = divData[code] || {};
+    if (!cur || !info.lastDiv) return 0;
+    const times = info.timesPerYear || 1;
+    return Math.round(info.lastDiv * times * shares);
+  };
+  const totalAnnualDiv = holdEntries.reduce((s,[c,hh]) => {
+    const cp = parseFloat(stockPrices[c]||0);
+    return s + calcAnnual(c, cp, hh.shares);
+  }, 0);
+
   divInfoEl.innerHTML = holdEntries.map(([code, h]) => {
-    const cur   = parseFloat(stockPrices[code] || 0);
-    const info  = divData[code] || {};
-    const yield_= info.annualYield || 0;
-    const lastD = info.lastDiv || 0;
-    const annual= cur && yield_ ? Math.round(cur * (yield_/100) * h.shares) : 0;
-    const totalAnnualDiv = holdEntries.reduce((s,[c,hh]) => {
-      const cp = parseFloat(stockPrices[c]||0);
-      const inf= divData[c]||{};
-      return s + (cp && inf.annualYield ? cp*(inf.annualYield/100)*hh.shares : 0);
-    }, 0);
-    const pct = totalAnnualDiv > 0 ? Math.round(annual/totalAnnualDiv*100) : 0;
-    return `<div class="holding-row" style="grid-template-columns:1.6fr 0.8fr 1fr 1fr 1fr 1fr">
+    const cur    = parseFloat(stockPrices[code] || 0);
+    const info   = divData[code] || {};
+    const yield_ = calcYield(code, cur);
+    const lastD  = info.lastDiv || 0;
+    const freq   = info.frequency || '—';
+    const annual = calcAnnual(code, cur, h.shares);
+    const pct    = totalAnnualDiv > 0 ? Math.round(annual/totalAnnualDiv*100) : 0;
+    return `<div class="holding-row" style="grid-template-columns:1.6fr 0.8fr 0.9fr 1fr 1fr 1fr 0.8fr">
       <div><div class="stock-name">${esc(h.name)}</div><div class="stock-code">${esc(code)}</div></div>
       <div>${cur ? '$'+fmtN(cur) : '—'}</div>
-      <div class="${yield_ > 0 ? 'pnl-pos' : 'pnl-zero'}">${yield_ ? yield_.toFixed(1)+'%' : '—'}</div>
-      <div>${lastD ? '$'+lastD : '—'}</div>
+      <div style="font-size:12px;color:var(--text2)">${freq}</div>
+      <div class="${yield_ > 0 ? 'pnl-pos' : 'pnl-zero'}">${yield_ ? yield_.toFixed(2)+'%' : '—'}</div>
+      <div>${lastD ? '$'+fmtN(lastD) : '—'}</div>
       <div class="pnl-pos">${annual ? fmt(annual) : '—'}</div>
       <div style="color:var(--text3)">${pct ? pct+'%' : '—'}</div>
     </div>`;
   }).join('') +
   `<div class="annual-total-row" style="margin-top:6px">
     <span>預估年度總配息收入</span>
-    <span class="pnl-pos">${fmt(Math.round(holdEntries.reduce((s,[code,h]) => {
-      const cp = parseFloat(stockPrices[code]||0);
-      const inf = (divData[code]||{});
-      return s + (cp && inf.annualYield ? cp*(inf.annualYield/100)*h.shares : 0);
-    },0)))}</span>
+    <span class="pnl-pos">${fmt(totalAnnualDiv)}</span>
   </div>`;
 
   // 交易記錄
@@ -785,14 +803,25 @@ function updatePrice(code, val) {
   if (!isNaN(n) && n > 0) stockPrices[code] = n;
   else delete stockPrices[code];
   persistStock();
-  // 只更新持倉數字，不重建整個表
   const holdings = calcHoldings();
   const h = holdings[code]; if (!h) return;
-  const avgC = h.shares > 0 ? h.totalCost / h.shares : 0;
   const mval = n * h.shares;
   const pnl  = mval - h.totalCost;
   const pct  = h.totalCost > 0 ? pnl / h.totalCost * 100 : 0;
-  // 更新統計卡
+
+  // 同步更新該列的市值(5)、未實現損益(6)、報酬率(7)
+  const input = document.querySelector(`.price-input[data-code="${code}"]`);
+  if (input) {
+    const row = input.closest('.holding-row');
+    if (row) {
+      const cells = row.querySelectorAll(':scope > div');
+      if (cells[5]) cells[5].textContent = n ? fmt(Math.round(mval)) : '—';
+      if (cells[6]) { cells[6].textContent = n ? pnlSign(pnl)+fmt(Math.round(pnl)) : '—'; cells[6].className = pnlClass(pnl); }
+      if (cells[7]) { cells[7].textContent = n ? pnlSign(pct)+pct.toFixed(2)+'%' : '—'; cells[7].className = pnlClass(pct); }
+    }
+  }
+
+  // 更新頂部統計卡
   let totalCost=0, totalValue=0;
   Object.entries(holdings).forEach(([c,hh]) => {
     const cp = parseFloat(stockPrices[c]||0);
@@ -803,6 +832,25 @@ function updatePrice(code, val) {
   urEl.textContent = (ur>=0?'+':'')+fmt(Math.round(ur));
   urEl.className   = 'stat-value '+pnlClass(ur);
   document.getElementById('inv-value').textContent = fmt(Math.round(totalValue));
+}
+
+function refreshPrices() {
+  const btn = document.getElementById('btn-refresh-prices');
+  if (btn) { btn.textContent = '🔄 更新中…'; btn.disabled = true; }
+  const old = document.querySelector('script[src^="prices.js"]');
+  if (old) old.remove();
+  const s = document.createElement('script');
+  s.src = 'prices.js?t=' + Date.now();
+  s.onload = () => {
+    applyExternalPrices();
+    renderInvest();
+    if (btn) { btn.textContent = '🔄 更新股價'; btn.disabled = false; }
+  };
+  s.onerror = () => {
+    if (btn) { btn.textContent = '🔄 更新股價'; btn.disabled = false; }
+    alert('股價更新失敗，請確認網路或稍後再試');
+  };
+  document.head.appendChild(s);
 }
 
 function deleteStockTx(id) {
@@ -1266,6 +1314,16 @@ function confirmEdit(){
 }
 
 // ── 分類管理 ─────────────────────────────────────────────
+function toggleSection(bodyId, iconId) {
+  const body = document.getElementById(bodyId);
+  const icon = document.getElementById(iconId);
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  icon.textContent   = isOpen ? '▶ 展開編輯' : '▼ 收起';
+}
+
+function toggleCatSection() { toggleSection('cat-section-body', 'cat-toggle-icon'); }
+
 function openAddCat(type){
   catMeta = { type, editId:null };
   document.getElementById('cat-modal-title').textContent = '新增'+(type==='expense'?'支出':'收入')+'分類';

@@ -153,50 +153,61 @@
 
     <!-- ══ 區塊 4b：月份比較 ══ -->
     <section class="section">
-      <div class="section-header space-between">
+      <div class="section-header space-between" style="cursor:pointer" onclick="toggleSection('cmp-section-body','cmp-toggle-icon')">
         <h2 class="section-title">🔀 月份比較</h2>
+        <span id="cmp-toggle-icon" style="font-size:13px;color:var(--text3);user-select:none">▶ 展開編輯</span>
       </div>
-      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-        <input type="month" id="cmp-month-a" class="filter-select">
-        <span style="color:var(--text3);font-size:18px">vs</span>
-        <input type="month" id="cmp-month-b" class="filter-select">
+      <div id="cmp-section-body" style="display:none;margin-top:12px">
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+          <input type="month" id="cmp-month-a" class="filter-select">
+          <span style="color:var(--text3);font-size:18px">vs</span>
+          <input type="month" id="cmp-month-b" class="filter-select">
+        </div>
+        <div class="compare-grid" id="compare-grid"></div>
       </div>
-      <div class="compare-grid" id="compare-grid"></div>
     </section>
 
     <!-- ══ 區塊 4c：重複記帳 ══ -->
     <section class="section">
-      <div class="section-header space-between">
+      <div class="section-header space-between" style="cursor:pointer" onclick="toggleSection('rec-section-body','rec-toggle-icon')">
         <h2 class="section-title">🔁 固定費用管理</h2>
-        <button class="btn-ghost" id="btn-add-recurring">＋ 新增固定費用</button>
+        <span id="rec-toggle-icon" style="font-size:13px;color:var(--text3);user-select:none">▶ 展開編輯</span>
       </div>
-      <div id="recurring-list"></div>
-      <div class="import-btn-row">
-        <div>
-          <span style="font-size:13px;color:var(--text2)">每月固定支出，一鍵新增到本月記錄</span>
+      <div id="rec-section-body" style="display:none;margin-top:12px">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+          <button class="btn-ghost" id="btn-add-recurring">＋ 新增固定費用</button>
         </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <span id="recurring-imported-tag" class="already-tag hidden">✅ 本月已匯入</span>
-          <button class="btn-primary" id="btn-import-recurring" style="width:auto;padding:9px 20px">⚡ 一鍵匯入本月</button>
+        <div id="recurring-list"></div>
+        <div class="import-btn-row">
+          <div>
+            <span style="font-size:13px;color:var(--text2)">每月固定支出，一鍵新增到本月記錄</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span id="recurring-imported-tag" class="already-tag hidden">✅ 本月已匯入</span>
+            <button class="btn-primary" id="btn-import-recurring" style="width:auto;padding:9px 20px">⚡ 一鍵匯入本月</button>
+          </div>
         </div>
       </div>
     </section>
 
     <!-- ══ 區塊 5：分類管理 ══ -->
     <section class="section">
-      <div class="section-header">
+      <div class="section-header space-between" id="cat-section-header" style="cursor:pointer" onclick="toggleCatSection()">
         <h2 class="section-title">🏷️ 分類管理</h2>
+        <span id="cat-toggle-icon" style="font-size:13px;color:var(--text3);user-select:none">▶ 展開編輯</span>
       </div>
-      <div class="cat-columns">
-        <div>
-          <div class="cat-col-title">支出分類</div>
-          <div id="cat-expense-list"></div>
-          <button class="add-cat-btn" data-type="expense">＋ 新增支出分類</button>
-        </div>
-        <div>
-          <div class="cat-col-title">收入分類</div>
-          <div id="cat-income-list"></div>
-          <button class="add-cat-btn" data-type="income">＋ 新增收入分類</button>
+      <div id="cat-section-body" style="display:none;margin-top:12px">
+        <div class="cat-columns">
+          <div>
+            <div class="cat-col-title">支出分類</div>
+            <div id="cat-expense-list"></div>
+            <button class="add-cat-btn" data-type="expense">＋ 新增支出分類</button>
+          </div>
+          <div>
+            <div class="cat-col-title">收入分類</div>
+            <div id="cat-income-list"></div>
+            <button class="add-cat-btn" data-type="income">＋ 新增收入分類</button>
+          </div>
         </div>
       </div>
     </section>
@@ -206,6 +217,7 @@
       <div class="section-header space-between">
         <h2 class="section-title">📈 投資追蹤</h2>
         <div style="display:flex;gap:8px">
+          <button class="btn-ghost" id="btn-refresh-prices" onclick="refreshPrices()">🔄 更新股價</button>
           <button class="btn-ghost" id="btn-add-stock-tx">＋ 新增交易</button>
           <button class="btn-ghost" id="btn-add-dividend">＋ 股息記錄</button>
         </div>
@@ -247,7 +259,7 @@
       <div style="margin-bottom:20px">
         <div class="inv-table-head">
           <span>股票</span><span>股數</span><span>平均成本</span>
-          <span>現價（可編輯）</span><span>市值</span><span>未實現損益</span><span>報酬率</span>
+          <span>現價（可編輯）</span><span>今日漲跌</span><span>市值</span><span>未實現損益</span><span>報酬率</span>
         </div>
         <div id="holdings-table"></div>
       </div>
@@ -262,8 +274,8 @@
       <div class="panel" style="margin-bottom:20px;padding:18px">
         <div class="chart-card-title">💸 持股配息資訊（年化殖利率）</div>
         <div id="dividend-info-table">
-          <div class="inv-table-head" style="grid-template-columns:1.6fr 0.8fr 1fr 1fr 1fr 1fr">
-            <span>股票</span><span>現價</span><span>年化殖利率</span><span>最近配息/股</span><span>預估年配息</span><span>佔比</span>
+          <div class="inv-table-head" style="grid-template-columns:1.6fr 0.8fr 0.9fr 1fr 1fr 1fr 0.8fr">
+            <span>股票</span><span>現價</span><span>配息頻率</span><span>年化殖利率</span><span>最近單次配息</span><span>預估年配息</span><span>佔比</span>
           </div>
           <div id="dividend-info-rows"></div>
         </div>
