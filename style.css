@@ -430,18 +430,45 @@ body {
   .table-header { display: none; }
   .tx-row {
     grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto;
-    padding: 10px;
+    grid-template-rows: auto auto auto;
+    padding: 13px 14px;
+    gap: 3px 10px;
   }
-  .tx-row > span:nth-child(1) { grid-column: 1; grid-row: 2; font-size: 11px; }
-  .tx-row > span:nth-child(2) { grid-column: 2; grid-row: 2; }
+  /* 分類 → 第一行左 */
   .tx-row > span:nth-child(3) { grid-column: 1; grid-row: 1; }
-  .tx-row > span:nth-child(4) { display: none; }
-  .tx-row > span:nth-child(5) { grid-column: 2; grid-row: 1; text-align: right; }
-  .tx-row > span:nth-child(6) { grid-column: 1/-1; grid-row: 3; display: flex; justify-content: flex-end; }
+  /* 金額 → 第一行右，放大 */
+  .tx-row > span:nth-child(5) {
+    grid-column: 2; grid-row: 1;
+    text-align: right; font-size: 16px;
+    align-self: center;
+  }
+  /* 備註 → 第二行左 */
+  .tx-row > span:nth-child(4) {
+    grid-column: 1; grid-row: 2;
+    display: block; font-size: 12px;
+    color: var(--text2); line-height: 1.4;
+  }
+  /* 類型badge → 第二行右 */
+  .tx-row > span:nth-child(2) { grid-column: 2; grid-row: 2; text-align: right; }
+  /* 日期 → 第三行左，縮小 */
+  .tx-row > span:nth-child(1) {
+    grid-column: 1; grid-row: 3;
+    font-size: 11px; color: var(--text3);
+    align-self: center;
+  }
+  /* 操作按鈕 → 第三行右 */
+  .tx-row > span:nth-child(6) {
+    grid-column: 2; grid-row: 3;
+    display: flex; justify-content: flex-end; align-items: center; gap: 2px;
+  }
 
-  .filter-bar { gap: 6px; }
-  .search-input { min-width: 120px; width: 100%; }
+  /* 記帳明細：標題與篩選列直向排列 */
+  #ledger-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  #ledger-header .filter-row { width: 100%; flex-wrap: wrap; gap: 6px; }
+  #ledger-header .search-wrap { width: 100%; }
+  #ledger-header .search-input { width: 100%; min-width: 0; box-sizing: border-box; }
+  #ledger-header .filter-select { flex: 1; min-width: 100px; }
+  #ledger-header #btn-export-csv { width: 100%; }
 
   .inv-table-head { display: none; }
   .holding-row {
