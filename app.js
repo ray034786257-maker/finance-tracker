@@ -404,12 +404,28 @@ function calcRealizedPnl() {
   return realized;
 }
 
-let curMonth  = mStr(new Date());
-let curYear   = new Date().getFullYear();
-let addType   = 'expense';
-let editingId = null;
-let catMeta   = {};
-const charts  = {};
+let curMonth   = mStr(new Date());
+let curYear    = new Date().getFullYear();
+let addType    = 'expense';
+let editingId  = null;
+let catMeta    = {};
+let currentPage = 'home';
+const charts   = {};
+
+// ── 頁面切換 ─────────────────────────────────────────────
+function showPage(page) {
+  currentPage = page;
+  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+  document.getElementById('page-' + page).classList.remove('hidden');
+  document.querySelectorAll('.nav-item').forEach(b =>
+    b.classList.toggle('active', b.dataset.page === page));
+  // 切換到新頁面時重新渲染（確保圖表在可見狀態下正確繪製）
+  if (page === 'home')     { renderStats(); renderHealth(); renderCharts(); }
+  if (page === 'ledger')   { renderTable(); }
+  if (page === 'invest')   { renderInvest(); }
+  if (page === 'analysis') { renderCompare(); renderAnnual(); }
+  if (page === 'settings') { renderRecurring(); renderCats(); }
+}
 
 function destroyChart(id) { if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
 
@@ -494,13 +510,11 @@ function renderAnnualCatList(elId, txs, type, grandTotal) {
 function renderAll() {
   renderStats();
   renderHealth();
-  renderCharts();
-  renderTable();
-  renderCompare();
-  renderRecurring();
-  renderCats();
-  renderInvest();
-  renderAnnual();
+  if (currentPage === 'home')     renderCharts();
+  if (currentPage === 'ledger')   renderTable();
+  if (currentPage === 'invest')   renderInvest();
+  if (currentPage === 'analysis') { renderCompare(); renderAnnual(); }
+  if (currentPage === 'settings') { renderRecurring(); renderCats(); }
 }
 
 // ── 財務健康指標 ──────────────────────────────────────────
@@ -1094,9 +1108,6 @@ function renderCharts() {
       responsive:true, maintainAspectRatio:false,
     }
   });
-
-  // 預算 mini
-  renderBudgetMini();
 }
 
 function renderBudgetMini() {
@@ -1207,6 +1218,11 @@ function populateCatSelect(selId, type) {
 function closeAddModal() { document.getElementById('add-overlay').classList.add('hidden'); }
 
 document.addEventListener('DOMContentLoaded', ()=>{
+
+  // 導覽列切換
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => showPage(btn.dataset.page));
+  });
 
   // 新增按鈕
   document.getElementById('btn-add-quick').addEventListener('click', openAddModal);

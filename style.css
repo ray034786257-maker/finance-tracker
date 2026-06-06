@@ -32,8 +32,8 @@ body {
 
 /* ── topbar ── */
 #topbar {
-  position: sticky; top: 0; z-index: 50;
-  background: rgba(255,255,255,.85);
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(255,255,255,.92);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
@@ -43,6 +43,33 @@ body {
   height: 52px;
   display: flex; align-items: center; justify-content: space-between;
 }
+
+/* ── 主導覽列（桌面：水平 tabs，手機：底部固定）──*/
+#main-nav {
+  position: sticky; top: 52px; z-index: 90;
+  display: flex; align-items: stretch;
+  background: rgba(255,255,255,.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  gap: 0;
+}
+.nav-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 8px 18px; gap: 2px;
+  background: none; border: none; cursor: pointer;
+  border-bottom: 3px solid transparent;
+  color: var(--text2); font-size: 12px; font-weight: 500;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.nav-icon { font-size: 17px; line-height: 1; }
+.nav-item:hover { color: var(--text); }
+.nav-item.active { color: var(--text); border-bottom-color: #374151; font-weight: 700; }
+
+/* ── 頁面顯示/隱藏 ── */
+.page { display: contents; }
+.page.hidden { display: none; }
 #page-title {
   display: flex; align-items: center; gap: 10px;
   font-size: 17px; font-weight: 700; color: var(--text);
@@ -115,6 +142,10 @@ body {
 .charts-section {
   display: grid !important;
   grid-template-columns: 1fr 1.8fr 1fr;
+}
+/* 首頁只剩兩欄圖表 */
+.charts-section--2col {
+  grid-template-columns: 1fr 1.6fr;
   gap: 0;
   padding: 0 !important;
   background: transparent !important;
@@ -410,7 +441,23 @@ body {
 
 /* ── 手機版 ── */
 @media (max-width: 768px) {
-  #content { padding: 16px 14px 48px; gap: 16px; }
+  /* 底部導覽列 */
+  #main-nav {
+    position: fixed; bottom: 0; left: 0; right: 0; top: auto;
+    border-top: 1px solid var(--border); border-bottom: none;
+    padding: 0; gap: 0;
+    box-shadow: 0 -2px 12px rgba(0,0,0,.07);
+    z-index: 200;
+  }
+  .nav-item {
+    flex: 1; padding: 6px 4px 8px;
+    font-size: 10px; border-bottom: none;
+    border-top: 2px solid transparent;
+  }
+  .nav-icon { font-size: 20px; }
+  .nav-item.active { border-top-color: #374151; border-bottom: none; }
+
+  #content { padding: 12px 12px 90px; gap: 14px; }
   #topbar-inner { padding: 0 14px; }
 
   .stats-row { grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -418,7 +465,7 @@ body {
   .stat-emoji { font-size: 20px; }
   .stat-value { font-size: 17px; }
 
-  .charts-section { grid-template-columns: 1fr !important; }
+  .charts-section, .charts-section--2col { grid-template-columns: 1fr !important; }
   .charts-section .chart-card + .chart-card { margin-left: 0; margin-top: 12px; }
   .bar-wrap, .doughnut-wrap { height: 200px; }
 

@@ -33,6 +33,25 @@
     </div>
   </header>
 
+  <!-- 主導覽列 -->
+  <nav id="main-nav">
+    <button class="nav-item active" data-page="home">
+      <span class="nav-icon">🏠</span><span class="nav-label">首頁</span>
+    </button>
+    <button class="nav-item" data-page="ledger">
+      <span class="nav-icon">📋</span><span class="nav-label">明細</span>
+    </button>
+    <button class="nav-item" data-page="invest">
+      <span class="nav-icon">📈</span><span class="nav-label">投資</span>
+    </button>
+    <button class="nav-item" data-page="analysis">
+      <span class="nav-icon">📊</span><span class="nav-label">分析</span>
+    </button>
+    <button class="nav-item" data-page="settings">
+      <span class="nav-icon">⚙️</span><span class="nav-label">設定</span>
+    </button>
+  </nav>
+
   <!-- 登入畫面 -->
   <div id="login-screen" class="hidden" style="position:fixed;inset:0;background:#f7f7f5;display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:20px">
     <div style="text-align:center">
@@ -53,150 +72,243 @@
       <button class="reminder-close" id="reminder-close">✕</button>
     </div>
 
-    <!-- ══ 區塊 1：本月統計 ══ -->
-    <section class="section">
-      <div class="section-header">
-        <div class="month-nav">
-          <button class="month-btn" id="prev-month">‹</button>
-          <h2 id="current-month-label">2025 年 6 月</h2>
-          <button class="month-btn" id="next-month">›</button>
-        </div>
-      </div>
+    <!-- ══ 頁面：首頁 ══ -->
+    <div id="page-home" class="page">
 
-      <div class="stats-row">
-        <div class="stat-callout income">
-          <div class="stat-emoji">💵</div>
-          <div class="stat-body">
-            <div class="stat-label">本月收入</div>
-            <div class="stat-value" id="stat-income">$0</div>
+      <!-- 本月統計 -->
+      <section class="section">
+        <div class="section-header">
+          <div class="month-nav">
+            <button class="month-btn" id="prev-month">‹</button>
+            <h2 id="current-month-label">2025 年 6 月</h2>
+            <button class="month-btn" id="next-month">›</button>
           </div>
         </div>
-        <div class="stat-callout expense">
-          <div class="stat-emoji">💸</div>
-          <div class="stat-body">
-            <div class="stat-label">本月支出</div>
-            <div class="stat-value" id="stat-expense">$0</div>
+        <div class="stats-row">
+          <div class="stat-callout income">
+            <div class="stat-emoji">💵</div>
+            <div class="stat-body"><div class="stat-label">本月收入</div><div class="stat-value" id="stat-income">$0</div></div>
+          </div>
+          <div class="stat-callout expense">
+            <div class="stat-emoji">💸</div>
+            <div class="stat-body"><div class="stat-label">本月支出</div><div class="stat-value" id="stat-expense">$0</div></div>
+          </div>
+          <div class="stat-callout balance">
+            <div class="stat-emoji">📊</div>
+            <div class="stat-body"><div class="stat-label">本月結餘</div><div class="stat-value" id="stat-balance">$0</div></div>
+          </div>
+          <div class="stat-callout total">
+            <div class="stat-emoji">🏦</div>
+            <div class="stat-body"><div class="stat-label">累積結餘</div><div class="stat-value" id="stat-total">$0</div></div>
           </div>
         </div>
-        <div class="stat-callout balance">
-          <div class="stat-emoji">📊</div>
-          <div class="stat-body">
-            <div class="stat-label">本月結餘</div>
-            <div class="stat-value" id="stat-balance">$0</div>
+        <div class="health-row" id="health-row"></div>
+      </section>
+
+      <!-- 圖表（僅保留支出分類 + 每日收支，移除預算執行）-->
+      <section class="section charts-section charts-section--2col">
+        <div class="chart-card">
+          <div class="chart-card-title">📉 支出分類</div>
+          <div class="doughnut-wrap"><canvas id="chart-expense-pie"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">📅 每日收支</div>
+          <div class="bar-wrap"><canvas id="chart-daily-bar"></canvas></div>
+        </div>
+      </section>
+
+    </div><!-- /page-home -->
+
+    <!-- ══ 頁面：記帳明細 ══ -->
+    <div id="page-ledger" class="page hidden">
+      <section class="section">
+        <div class="section-header space-between" id="ledger-header">
+          <h2 class="section-title">📋 記帳明細</h2>
+          <div class="filter-row">
+            <div class="search-wrap">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="search-tx" class="search-input" placeholder="搜尋備註、分類…">
+            </div>
+            <select id="filter-type" class="filter-select">
+              <option value="all">全部類型</option>
+              <option value="expense">支出</option>
+              <option value="income">收入</option>
+            </select>
+            <select id="filter-cat" class="filter-select">
+              <option value="all">全部分類</option>
+            </select>
+            <button id="btn-export-csv" class="btn-ghost">⬇ 匯出 CSV</button>
           </div>
         </div>
-        <div class="stat-callout total">
-          <div class="stat-emoji">🏦</div>
-          <div class="stat-body">
-            <div class="stat-label">累積結餘</div>
-            <div class="stat-value" id="stat-total">$0</div>
+        <div class="table-header">
+          <span class="col-date">日期</span><span class="col-type">類型</span>
+          <span class="col-cat">分類</span><span class="col-note">備註</span>
+          <span class="col-amount">金額</span><span class="col-actions"></span>
+        </div>
+        <div id="tx-table-body"></div>
+        <div class="table-footer"><span id="tx-count">0 筆記錄</span></div>
+      </section>
+    </div><!-- /page-ledger -->
+
+    <!-- ══ 頁面：投資 ══ -->
+    <div id="page-invest" class="page hidden">
+      <section class="section" id="invest-section">
+        <div class="section-header space-between">
+          <h2 class="section-title">📈 投資追蹤</h2>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn-ghost" id="btn-refresh-prices" onclick="refreshPrices()">🔄 更新股價</button>
+            <button class="btn-ghost" id="btn-add-stock-tx">＋ 新增交易</button>
+            <button class="btn-ghost" id="btn-add-dividend">＋ 股息記錄</button>
           </div>
         </div>
-      </div>
-      <!-- 財務健康指標 -->
-      <div class="health-row" id="health-row"></div>
-    </section>
-
-    <!-- ══ 區塊 2：圖表列 ══ -->
-    <section class="section charts-section">
-      <div class="chart-card">
-        <div class="chart-card-title">📉 支出分類</div>
-        <div class="doughnut-wrap"><canvas id="chart-expense-pie"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-title">📅 每日收支</div>
-        <div class="bar-wrap"><canvas id="chart-daily-bar"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-title">🎯 預算執行</div>
-        <div id="budget-mini-list"></div>
-      </div>
-    </section>
-
-    <!-- ══ 區塊 3：記帳明細 ══ -->
-    <section class="section">
-      <div class="section-header space-between" id="ledger-header">
-        <h2 class="section-title">📋 記帳明細</h2>
-        <div class="filter-row">
-          <div class="search-wrap">
-            <span class="search-icon">🔍</span>
-            <input type="text" id="search-tx" class="search-input" placeholder="搜尋備註、分類…">
+        <div class="stats-row" style="margin-bottom:20px">
+          <div class="stat-callout income">
+            <div class="stat-emoji">💼</div>
+            <div class="stat-body"><div class="stat-label">投入成本</div><div class="stat-value" id="inv-cost">$0</div></div>
           </div>
-          <select id="filter-type" class="filter-select">
-            <option value="all">全部類型</option>
-            <option value="expense">支出</option>
-            <option value="income">收入</option>
-          </select>
-          <select id="filter-cat" class="filter-select">
-            <option value="all">全部分類</option>
-          </select>
-          <button id="btn-export-csv" class="btn-ghost">⬇ 匯出 CSV</button>
+          <div class="stat-callout balance">
+            <div class="stat-emoji">📊</div>
+            <div class="stat-body"><div class="stat-label">目前市值</div><div class="stat-value" id="inv-value">$0</div></div>
+          </div>
+          <div class="stat-callout" id="inv-pnl-card" style="border-color:#c3d2fa;background:#eef3ff">
+            <div class="stat-emoji">📉</div>
+            <div class="stat-body"><div class="stat-label">未實現損益</div><div class="stat-value" id="inv-unrealized">$0</div></div>
+          </div>
+          <div class="stat-callout total">
+            <div class="stat-emoji">💰</div>
+            <div class="stat-body"><div class="stat-label">已實現損益</div><div class="stat-value" id="inv-realized">$0</div></div>
+          </div>
         </div>
-      </div>
+        <div style="margin-bottom:20px">
+          <div class="inv-table-head">
+            <span>股票</span><span>股數</span><span>平均成本</span>
+            <span>現價（可編輯）</span><span>今日漲跌</span><span>市值</span><span>未實現損益</span><span>報酬率</span>
+          </div>
+          <div id="holdings-table"></div>
+        </div>
+        <div id="prices-update-bar" style="font-size:12px;color:var(--text3);margin-bottom:12px;padding:6px 12px;background:var(--bg2);border-radius:var(--radius-sm)">
+          📡 股價資料：<span id="prices-update-time">載入中…</span>
+          　　<span id="prices-update-note" style="color:var(--income-fg)"></span>
+        </div>
+        <div class="panel" style="margin-bottom:20px;padding:18px">
+          <div class="chart-card-title">💸 持股配息資訊（年化殖利率）</div>
+          <div id="dividend-info-table">
+            <div class="inv-table-head" style="grid-template-columns:1.6fr 0.8fr 0.9fr 1fr 1fr 1fr 0.8fr">
+              <span>股票</span><span>現價</span><span>配息頻率</span><span>年化殖利率</span><span>最近單次配息</span><span>預估年配息</span><span>佔比</span>
+            </div>
+            <div id="dividend-info-rows"></div>
+          </div>
+        </div>
+        <div class="two-col" style="margin-bottom:20px">
+          <div class="panel" style="margin-bottom:0">
+            <div class="chart-card-title">🎁 股息收益</div>
+            <div class="inv-stat-row"><span>總股息收入</span><span id="inv-dividend-total" class="inv-stat-val income">$0</span></div>
+            <div id="dividend-list" style="margin-top:8px"></div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="chart-card-title">📋 已實現交易</div>
+            <div id="realized-list"></div>
+          </div>
+        </div>
+        <div>
+          <div class="section-header space-between" style="margin-bottom:10px">
+            <div class="chart-card-title" style="margin:0">📒 交易記錄</div>
+          </div>
+          <div class="inv-tx-head">
+            <span>日期</span><span>類型</span><span>股票</span><span>股數</span>
+            <span>價格</span><span>手續費</span><span>總金額</span><span></span>
+          </div>
+          <div id="stock-tx-list"></div>
+        </div>
+      </section>
+    </div><!-- /page-invest -->
 
-      <!-- 表頭 -->
-      <div class="table-header">
-        <span class="col-date">日期</span>
-        <span class="col-type">類型</span>
-        <span class="col-cat">分類</span>
-        <span class="col-note">備註</span>
-        <span class="col-amount">金額</span>
-        <span class="col-actions"></span>
-      </div>
+    <!-- ══ 頁面：分析 ══ -->
+    <div id="page-analysis" class="page hidden">
 
-      <div id="tx-table-body"></div>
-
-      <div class="table-footer">
-        <span id="tx-count">0 筆記錄</span>
-      </div>
-    </section>
-
-    <!-- ══ 區塊 4b：月份比較 ══ -->
-    <section class="section">
-      <div class="section-header space-between" style="cursor:pointer" onclick="toggleSection('cmp-section-body','cmp-toggle-icon')">
-        <h2 class="section-title">🔀 月份比較</h2>
-        <span id="cmp-toggle-icon" style="font-size:13px;color:var(--text3);user-select:none">▶ 展開編輯</span>
-      </div>
-      <div id="cmp-section-body" style="display:none;margin-top:12px">
+      <!-- 月份比較 -->
+      <section class="section">
+        <div class="section-header space-between">
+          <h2 class="section-title">🔀 月份比較</h2>
+        </div>
         <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
           <input type="month" id="cmp-month-a" class="filter-select">
           <span style="color:var(--text3);font-size:18px">vs</span>
           <input type="month" id="cmp-month-b" class="filter-select">
         </div>
         <div class="compare-grid" id="compare-grid"></div>
-      </div>
-    </section>
+      </section>
 
-    <!-- ══ 區塊 4c：重複記帳 ══ -->
-    <section class="section">
-      <div class="section-header space-between" style="cursor:pointer" onclick="toggleSection('rec-section-body','rec-toggle-icon')">
-        <h2 class="section-title">🔁 固定費用管理</h2>
-        <span id="rec-toggle-icon" style="font-size:13px;color:var(--text3);user-select:none">▶ 展開編輯</span>
-      </div>
-      <div id="rec-section-body" style="display:none;margin-top:12px">
-        <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <!-- 年度總覽 -->
+      <section class="section" id="annual-section">
+        <div class="section-header space-between">
+          <h2 class="section-title">📅 年度總覽</h2>
+          <div class="year-nav">
+            <button class="month-btn" id="prev-year">‹</button>
+            <span id="year-label" style="font-size:16px;font-weight:700;min-width:60px;text-align:center"></span>
+            <button class="month-btn" id="next-year">›</button>
+          </div>
+        </div>
+        <div class="stats-row" style="margin-bottom:20px">
+          <div class="stat-callout income">
+            <div class="stat-emoji">💵</div>
+            <div class="stat-body"><div class="stat-label">年度總收入</div><div class="stat-value" id="yr-income">$0</div></div>
+          </div>
+          <div class="stat-callout expense">
+            <div class="stat-emoji">💸</div>
+            <div class="stat-body"><div class="stat-label">年度總支出</div><div class="stat-value" id="yr-expense">$0</div></div>
+          </div>
+          <div class="stat-callout balance">
+            <div class="stat-emoji">📊</div>
+            <div class="stat-body"><div class="stat-label">年度結餘</div><div class="stat-value" id="yr-balance">$0</div></div>
+          </div>
+          <div class="stat-callout total">
+            <div class="stat-emoji">📝</div>
+            <div class="stat-body"><div class="stat-label">記錄筆數</div><div class="stat-value" id="yr-count">0</div></div>
+          </div>
+        </div>
+        <div class="panel" style="margin-bottom:20px;padding:18px">
+          <div class="chart-card-title">📈 月份收支趨勢</div>
+          <div style="height:220px"><canvas id="chart-annual-trend"></canvas></div>
+        </div>
+        <div class="annual-breakdown">
+          <div class="annual-col">
+            <div class="annual-col-title">💵 收入明細</div>
+            <div id="annual-income-list"></div>
+          </div>
+          <div class="annual-col">
+            <div class="annual-col-title">💸 支出明細</div>
+            <div id="annual-expense-list"></div>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /page-analysis -->
+
+    <!-- ══ 頁面：設定 ══ -->
+    <div id="page-settings" class="page hidden">
+
+      <!-- 固定費用管理 -->
+      <section class="section">
+        <div class="section-header space-between">
+          <h2 class="section-title">🔁 固定費用管理</h2>
           <button class="btn-ghost" id="btn-add-recurring">＋ 新增固定費用</button>
         </div>
         <div id="recurring-list"></div>
         <div class="import-btn-row">
-          <div>
-            <span style="font-size:13px;color:var(--text2)">每月固定支出，一鍵新增到本月記錄</span>
-          </div>
+          <span style="font-size:13px;color:var(--text2)">每月固定支出，一鍵新增到本月記錄</span>
           <div style="display:flex;gap:8px;align-items:center">
             <span id="recurring-imported-tag" class="already-tag hidden">✅ 本月已匯入</span>
             <button class="btn-primary" id="btn-import-recurring" style="width:auto;padding:9px 20px">⚡ 一鍵匯入本月</button>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- ══ 區塊 5：分類管理 ══ -->
-    <section class="section">
-      <div class="section-header space-between" id="cat-section-header" style="cursor:pointer" onclick="toggleCatSection()">
-        <h2 class="section-title">🏷️ 分類管理</h2>
-        <span id="cat-toggle-icon" style="font-size:13px;color:var(--text3);user-select:none">▶ 展開編輯</span>
-      </div>
-      <div id="cat-section-body" style="display:none;margin-top:12px">
+      <!-- 分類管理 -->
+      <section class="section">
+        <div class="section-header">
+          <h2 class="section-title">🏷️ 分類管理</h2>
+        </div>
         <div class="cat-columns">
           <div>
             <div class="cat-col-title">支出分類</div>
@@ -209,165 +321,9 @@
             <button class="add-cat-btn" data-type="income">＋ 新增收入分類</button>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- ══ 區塊 6：投資追蹤 ══ -->
-    <section class="section" id="invest-section">
-      <div class="section-header space-between">
-        <h2 class="section-title">📈 投資追蹤</h2>
-        <div style="display:flex;gap:8px">
-          <button class="btn-ghost" id="btn-refresh-prices" onclick="refreshPrices()">🔄 更新股價</button>
-          <button class="btn-ghost" id="btn-add-stock-tx">＋ 新增交易</button>
-          <button class="btn-ghost" id="btn-add-dividend">＋ 股息記錄</button>
-        </div>
-      </div>
-
-      <!-- 投資統計卡 -->
-      <div class="stats-row" style="margin-bottom:20px">
-        <div class="stat-callout income">
-          <div class="stat-emoji">💼</div>
-          <div class="stat-body">
-            <div class="stat-label">投入成本</div>
-            <div class="stat-value" id="inv-cost">$0</div>
-          </div>
-        </div>
-        <div class="stat-callout balance">
-          <div class="stat-emoji">📊</div>
-          <div class="stat-body">
-            <div class="stat-label">目前市值</div>
-            <div class="stat-value" id="inv-value">$0</div>
-          </div>
-        </div>
-        <div class="stat-callout" id="inv-pnl-card" style="border-color:#c3d2fa;background:#eef3ff">
-          <div class="stat-emoji">📉</div>
-          <div class="stat-body">
-            <div class="stat-label">未實現損益</div>
-            <div class="stat-value" id="inv-unrealized">$0</div>
-          </div>
-        </div>
-        <div class="stat-callout total">
-          <div class="stat-emoji">💰</div>
-          <div class="stat-body">
-            <div class="stat-label">已實現損益</div>
-            <div class="stat-value" id="inv-realized">$0</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 持倉表 -->
-      <div style="margin-bottom:20px">
-        <div class="inv-table-head">
-          <span>股票</span><span>股數</span><span>平均成本</span>
-          <span>現價（可編輯）</span><span>今日漲跌</span><span>市值</span><span>未實現損益</span><span>報酬率</span>
-        </div>
-        <div id="holdings-table"></div>
-      </div>
-
-      <!-- 股價更新時間 -->
-      <div id="prices-update-bar" style="font-size:12px;color:var(--text3);margin-bottom:12px;padding:6px 12px;background:var(--bg2);border-radius:var(--radius-sm)">
-        📡 股價資料：<span id="prices-update-time">載入中…</span>
-        　　<span id="prices-update-note" style="color:var(--income-fg)"></span>
-      </div>
-
-      <!-- 配息資訊 -->
-      <div class="panel" style="margin-bottom:20px;padding:18px">
-        <div class="chart-card-title">💸 持股配息資訊（年化殖利率）</div>
-        <div id="dividend-info-table">
-          <div class="inv-table-head" style="grid-template-columns:1.6fr 0.8fr 0.9fr 1fr 1fr 1fr 0.8fr">
-            <span>股票</span><span>現價</span><span>配息頻率</span><span>年化殖利率</span><span>最近單次配息</span><span>預估年配息</span><span>佔比</span>
-          </div>
-          <div id="dividend-info-rows"></div>
-        </div>
-      </div>
-
-      <!-- 股息收益 -->
-      <div class="two-col" style="margin-bottom:20px">
-        <div class="panel" style="margin-bottom:0">
-          <div class="chart-card-title">🎁 股息收益</div>
-          <div class="inv-stat-row"><span>總股息收入</span><span id="inv-dividend-total" class="inv-stat-val income">$0</span></div>
-          <div id="dividend-list" style="margin-top:8px"></div>
-        </div>
-        <div class="panel" style="margin-bottom:0">
-          <div class="chart-card-title">📋 已實現交易</div>
-          <div id="realized-list"></div>
-        </div>
-      </div>
-
-      <!-- 交易記錄 -->
-      <div>
-        <div class="section-header space-between" style="margin-bottom:10px">
-          <div class="chart-card-title" style="margin:0">📒 交易記錄</div>
-        </div>
-        <div class="inv-tx-head">
-          <span>日期</span><span>類型</span><span>股票</span><span>股數</span>
-          <span>價格</span><span>手續費</span><span>總金額</span><span></span>
-        </div>
-        <div id="stock-tx-list"></div>
-      </div>
-    </section>
-
-    <!-- ══ 區塊 7：年度總覽 ══ -->
-    <section class="section" id="annual-section">
-      <div class="section-header space-between">
-        <h2 class="section-title">📅 年度總覽</h2>
-        <div class="year-nav">
-          <button class="month-btn" id="prev-year">‹</button>
-          <span id="year-label" style="font-size:16px;font-weight:700;min-width:60px;text-align:center"></span>
-          <button class="month-btn" id="next-year">›</button>
-        </div>
-      </div>
-
-      <!-- 年度統計卡 -->
-      <div class="stats-row" style="margin-bottom:20px">
-        <div class="stat-callout income">
-          <div class="stat-emoji">💵</div>
-          <div class="stat-body">
-            <div class="stat-label">年度總收入</div>
-            <div class="stat-value" id="yr-income">$0</div>
-          </div>
-        </div>
-        <div class="stat-callout expense">
-          <div class="stat-emoji">💸</div>
-          <div class="stat-body">
-            <div class="stat-label">年度總支出</div>
-            <div class="stat-value" id="yr-expense">$0</div>
-          </div>
-        </div>
-        <div class="stat-callout balance">
-          <div class="stat-emoji">📊</div>
-          <div class="stat-body">
-            <div class="stat-label">年度結餘</div>
-            <div class="stat-value" id="yr-balance">$0</div>
-          </div>
-        </div>
-        <div class="stat-callout total">
-          <div class="stat-emoji">📝</div>
-          <div class="stat-body">
-            <div class="stat-label">記錄筆數</div>
-            <div class="stat-value" id="yr-count">0</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 月份趨勢圖 -->
-      <div class="panel" style="margin-bottom:20px;padding:18px">
-        <div class="chart-card-title">📈 月份收支趨勢</div>
-        <div style="height:220px"><canvas id="chart-annual-trend"></canvas></div>
-      </div>
-
-      <!-- 收入 & 支出分類明細 -->
-      <div class="annual-breakdown">
-        <div class="annual-col">
-          <div class="annual-col-title">💵 收入明細</div>
-          <div id="annual-income-list"></div>
-        </div>
-        <div class="annual-col">
-          <div class="annual-col-title">💸 支出明細</div>
-          <div id="annual-expense-list"></div>
-        </div>
-      </div>
-    </section>
+    </div><!-- /page-settings -->
 
   </div><!-- /content -->
 </div><!-- /app -->
