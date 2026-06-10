@@ -638,3 +638,30 @@ body {
   font-size: 13px; font-weight: 700;
 }
 .year-nav { display: flex; align-items: center; gap: 10px; }
+
+/* ── 薪資獎金明細 ── */
+.salary-row {
+  display: grid;
+  grid-template-columns: 0.8fr 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 9px 4px;
+  font-size: 13px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+.salary-header {
+  font-size: 11px; font-weight: 700;
+  color: var(--text3);
+  text-transform: uppercase; letter-spacing: .5px;
+  padding-bottom: 8px;
+}
+.salary-footer {
+  font-weight: 700;
+  border-top: 2px solid var(--border);
+  border-bottom: none;
+  padding-top: 10px; margin-top: 2px;
+}
+.salary-col { text-align: right; font-weight: 600; }
+.salary-col.income { color: var(--income-fg); }
+.salary-col.bonus  { color: #4d7c0f; }
+.salary-col.total  { color: var(--balance-fg); }

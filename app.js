@@ -246,13 +246,13 @@ function setSyncStatus(status) {
 }
 
 function cloudSave() {
-  if (!window.cloudSync) return;
+  if (!window.cloudSync) return Promise.resolve();
   // 未登入時不儲存（頁面初始化階段）
-  try { if (!firebase.auth().currentUser) return; } catch(e) { return; }
+  try { if (!firebase.auth().currentUser) return Promise.resolve(); } catch(e) { return Promise.resolve(); }
   setSyncStatus('syncing');
   // 安全取值（避免變數尚未宣告時出錯）
   const _recurring = typeof recurring !== 'undefined' ? recurring : [];
-  Promise.all([
+  return Promise.all([
     window.cloudSync.save('transactions', transactions),
     window.cloudSync.save('categories',   categories),
     window.cloudSync.save('budgets',      budgets),
@@ -475,6 +475,75 @@ function renderAnnual() {
   renderAnnualCatList('annual-income-list', txs, 'income', income);
   // 支出明細
   renderAnnualCatList('annual-expense-list', txs, 'expense', expense);
+  // 薪資獎金明細
+  renderSalaryTable();
+}
+
+function renderSalaryTable() {
+  const months  = Array.from({length:12}, (_,i) => String(curYear)+'-'+String(i+1).padStart(2,'0'));
+  const mLabels = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+  const getAmt = (m, catId) =>
+    transactions.filter(t => t.date.startsWith(m) && t.categoryId === catId)
+                .reduce((s, t) => s + t.amount, 0);
+
+  const salaryArr = months.map(m => getAmt(m, 'i1'));
+  const bonusArr  = months.map(m => getAmt(m, 'i2'));
+  const totalSalary = salaryArr.reduce((a, b) => a + b, 0);
+  const totalBonus  = bonusArr.reduce((a, b) => a + b, 0);
+
+  // 統計卡
+  document.getElementById('yr-salary').textContent       = fmt(totalSalary);
+  document.getElementById('yr-bonus').textContent        = fmt(totalBonus);
+  document.getElementById('yr-salary-total').textContent = fmt(totalSalary + totalBonus);
+
+  // 長條圖（堆疊）
+  destroyChart('salary-bonus');
+  charts['salary-bonus'] = new Chart(document.getElementById('chart-salary-bonus'), {
+    type: 'bar',
+    data: {
+      labels: mLabels,
+      datasets: [
+        { label:'薪資', data: salaryArr, backgroundColor:'#86efac', borderRadius:3 },
+        { label:'獎金', data: bonusArr,  backgroundColor:'#fcd34d', borderRadius:3 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { font:{size:11}, padding:8, boxWidth:12 } } },
+      scales: {
+        x: { stacked: true, ticks:{ font:{size:10} } },
+        y: { stacked: true, beginAtZero: true, ticks:{ callback: v => '$' + v.toLocaleString(), font:{size:10} } },
+      },
+      interaction: { mode:'index', intersect:false },
+    }
+  });
+
+  // 月份表格（只顯示有資料的月份）
+  const tableRows = months.map((m, i) => {
+    const salary = salaryArr[i];
+    const bonus  = bonusArr[i];
+    if (!salary && !bonus) return '';
+    const total = salary + bonus;
+    return `<div class="salary-row">
+      <span>${mLabels[i]}</span>
+      <span class="salary-col income">${salary ? fmt(salary) : '—'}</span>
+      <span class="salary-col bonus">${bonus  ? fmt(bonus)  : '—'}</span>
+      <span class="salary-col total">${fmt(total)}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('salary-table').innerHTML =
+    `<div class="salary-row salary-header">
+      <span>月份</span><span>💼 薪資</span><span>🎁 獎金</span><span>合計</span>
+    </div>
+    ${tableRows || '<div style="color:var(--text3);font-size:13px;padding:12px 0">本年度無薪資獎金記錄</div>'}
+    <div class="salary-row salary-footer">
+      <span>年度合計</span>
+      <span class="salary-col income">${fmt(totalSalary)}</span>
+      <span class="salary-col bonus">${fmt(totalBonus)}</span>
+      <span class="salary-col total">${fmt(totalSalary + totalBonus)}</span>
+    </div>`;
 }
 
 function renderAnnualCatList(elId, txs, type, grandTotal) {

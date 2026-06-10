@@ -281,6 +281,28 @@
             <div id="annual-expense-list"></div>
           </div>
         </div>
+
+        <!-- 薪資獎金明細 -->
+        <div class="panel" style="margin-top:20px;padding:18px">
+          <div class="chart-card-title" style="font-size:15px;margin-bottom:14px">💼 薪資 ＆ 獎金明細</div>
+          <div class="stats-row" style="margin-bottom:16px">
+            <div class="stat-callout income">
+              <div class="stat-emoji">💼</div>
+              <div class="stat-body"><div class="stat-label">年度薪資</div><div class="stat-value" id="yr-salary">$0</div></div>
+            </div>
+            <div class="stat-callout" style="border-color:#d9f99d;background:#f7fee7">
+              <div class="stat-emoji">🎁</div>
+              <div class="stat-body"><div class="stat-label">年度獎金</div><div class="stat-value" id="yr-bonus" style="color:#4d7c0f">$0</div></div>
+            </div>
+            <div class="stat-callout balance">
+              <div class="stat-emoji">🏦</div>
+              <div class="stat-body"><div class="stat-label">薪資＋獎金</div><div class="stat-value" id="yr-salary-total">$0</div></div>
+            </div>
+          </div>
+          <div style="height:200px;margin-bottom:16px"><canvas id="chart-salary-bonus"></canvas></div>
+          <div id="salary-table"></div>
+        </div>
+
       </section>
 
     </div><!-- /page-analysis -->
