@@ -1200,6 +1200,7 @@ function renderBudgetMini() {
 
 // 記帳明細表
 function renderTable() {
+  document.getElementById('ledger-month-label').textContent = mLabel(curMonth);
   const type  = document.getElementById('filter-type').value;
   const catId = document.getElementById('filter-cat').value;
 
@@ -1321,9 +1322,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
     renderAll();
   });
 
-  // 月份切換
+  // 月份切換（首頁）
   document.getElementById('prev-month').addEventListener('click', ()=>{ curMonth=mAdd(curMonth,-1); renderAll(); });
   document.getElementById('next-month').addEventListener('click', ()=>{ curMonth=mAdd(curMonth, 1); renderAll(); });
+  // 月份切換（明細頁）
+  document.getElementById('ledger-prev-month').addEventListener('click', ()=>{ curMonth=mAdd(curMonth,-1); renderAll(); });
+  document.getElementById('ledger-next-month').addEventListener('click', ()=>{ curMonth=mAdd(curMonth, 1); renderAll(); });
   document.getElementById('prev-year').addEventListener('click', ()=>{ curYear--; renderAnnual(); });
   document.getElementById('next-year').addEventListener('click', ()=>{ curYear++; renderAnnual(); });
 

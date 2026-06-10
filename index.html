@@ -123,7 +123,11 @@
     <div id="page-ledger" class="page hidden">
       <section class="section">
         <div class="section-header space-between" id="ledger-header">
-          <h2 class="section-title">📋 記帳明細</h2>
+          <div class="month-nav">
+            <button class="month-btn" id="ledger-prev-month">‹</button>
+            <h2 id="ledger-month-label" style="font-size:16px;font-weight:700;min-width:100px;text-align:center"></h2>
+            <button class="month-btn" id="ledger-next-month">›</button>
+          </div>
           <div class="filter-row">
             <div class="search-wrap">
               <span class="search-icon">🔍</span>
