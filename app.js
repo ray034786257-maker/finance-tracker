@@ -792,8 +792,7 @@ function renderInvest() {
         <div><div class="stock-name">${esc(h.name)}</div><div class="stock-code">${esc(code)}</div></div>
         <div>${fmtN(h.shares)}</div>
         <div>$${fmtN(Math.round(avgC))}</div>
-        <div><input class="price-input" data-code="${esc(code)}" type="number" step="0.01" value="${cur||''}" placeholder="輸入現價"
-          onchange="updatePrice('${esc(code)}', this.value)" oninput="updatePrice('${esc(code)}', this.value)"></div>
+        <div>${cur ? '$' + fmtN(cur) : '—'}</div>
         <div>${dailyHTML}</div>
         <div>${cur ? fmt(Math.round(mval)) : '—'}</div>
         <div class="${pnlClass(pnl)}">${cur ? pnlSign(pnl)+fmt(Math.round(pnl)) : '—'}</div>
@@ -897,18 +896,6 @@ function updatePrice(code, val) {
   const mval = n * h.shares;
   const pnl  = mval - h.totalCost;
   const pct  = h.totalCost > 0 ? pnl / h.totalCost * 100 : 0;
-
-  // 同步更新該列的市值(5)、未實現損益(6)、報酬率(7)
-  const input = document.querySelector(`.price-input[data-code="${code}"]`);
-  if (input) {
-    const row = input.closest('.holding-row');
-    if (row) {
-      const cells = row.querySelectorAll(':scope > div');
-      if (cells[5]) cells[5].textContent = n ? fmt(Math.round(mval)) : '—';
-      if (cells[6]) { cells[6].textContent = n ? pnlSign(pnl)+fmt(Math.round(pnl)) : '—'; cells[6].className = pnlClass(pnl); }
-      if (cells[7]) { cells[7].textContent = n ? pnlSign(pct)+pct.toFixed(2)+'%' : '—'; cells[7].className = pnlClass(pct); }
-    }
-  }
 
   // 更新頂部統計卡
   let totalCost=0, totalValue=0;
