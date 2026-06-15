@@ -742,6 +742,47 @@ function checkMonthlyReminder() {
   };
 }
 
+// ── 即將除息排程（手動維護，可自行增減）─────────────────
+const upcomingDividendSchedule = [
+  { code: '00918', name: '大華優利高填息30', exDate: '2026-06-18', payDate: '2026-07-13', perShare: 1.26 },
+];
+
+function renderUpcomingDividends() {
+  const el = document.getElementById('upcoming-div-rows');
+  if (!el) return;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  const upcoming = upcomingDividendSchedule.filter(d => new Date(d.payDate) >= today);
+
+  if (!upcoming.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">近期無除息計畫</div>';
+    return;
+  }
+
+  const holdings = calcHoldings();
+
+  el.innerHTML =
+    `<div class="div-sched-head">
+      <span>股票</span><span>除息日</span><span>距今</span><span>配息日</span><span>每股配息</span><span>預計收益</span>
+    </div>` +
+    upcoming.map(d => {
+      const exD = new Date(d.exDate); exD.setHours(0, 0, 0, 0);
+      const daysToEx = Math.round((exD - today) / 86400000);
+      const daysLabel = daysToEx > 0 ? `${daysToEx} 天後` : daysToEx === 0 ? '今天！' : '已除息';
+      const urgent = daysToEx >= 0 && daysToEx <= 5;
+      const h = holdings[d.code];
+      const estIncome = h ? Math.round(d.perShare * h.shares) : null;
+      return `<div class="div-sched-row${urgent ? ' div-sched-urgent' : ''}">
+        <div><div class="stock-name">${esc(d.name)}</div><div class="stock-code">${esc(d.code)}</div></div>
+        <div>${d.exDate}</div>
+        <div class="${urgent ? 'pnl-pos' : ''}" style="font-weight:${urgent?'700':'400'}">${daysLabel}</div>
+        <div>${d.payDate}</div>
+        <div>$${d.perShare}</div>
+        <div class="pnl-pos">${estIncome !== null ? fmt(estIncome) : '—'}</div>
+      </div>`;
+    }).join('');
+}
+
 // ── 投資追蹤渲染 ─────────────────────────────────────────
 function renderInvest() {
   const holdings = calcHoldings();
@@ -884,6 +925,8 @@ function renderInvest() {
       <span><button class="icon-btn" onclick="deleteStockTx('${t.id}')">🗑️</button></span>
     </div>`
   ).join('') || '<div class="empty-state">尚無交易記錄</div>';
+
+  renderUpcomingDividends();
 }
 
 function updatePrice(code, val) {

@@ -665,3 +665,27 @@ body {
 .salary-col.income { color: var(--income-fg); }
 .salary-col.bonus  { color: #4d7c0f; }
 .salary-col.total  { color: var(--balance-fg); }
+
+/* ── 即將除息排程表 ── */
+.div-sched-head, .div-sched-row {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr 0.8fr 1fr 0.8fr 0.9fr;
+  gap: 6px;
+  padding: 8px 4px;
+  font-size: 13px;
+  align-items: center;
+}
+.div-sched-head {
+  font-size: 11px; font-weight: 700;
+  color: var(--text3);
+  text-transform: uppercase; letter-spacing: .5px;
+  border-bottom: 1px solid var(--border);
+}
+.div-sched-row { border-bottom: 1px solid var(--border); }
+.div-sched-row:last-child { border-bottom: none; }
+.div-sched-urgent {
+  background: rgba(250, 204, 21, 0.12);
+  border-radius: 6px;
+  border-bottom: none !important;
+  margin-bottom: 4px;
+}
