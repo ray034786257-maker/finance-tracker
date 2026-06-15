@@ -689,3 +689,14 @@ body {
   border-bottom: none !important;
   margin-bottom: 4px;
 }
+.div-est-badge {
+  display: inline-block;
+  font-size: 10px; font-weight: 600;
+  color: var(--text3);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  vertical-align: middle;
+  margin-left: 4px;
+}

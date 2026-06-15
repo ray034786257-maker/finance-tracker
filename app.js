@@ -742,17 +742,60 @@ function checkMonthlyReminder() {
   };
 }
 
-// ── 即將除息排程（手動維護，可自行增減）─────────────────
-const upcomingDividendSchedule = [
-  { code: '00918', name: '大華優利高填息30', exDate: '2026-06-18', payDate: '2026-07-13', perShare: 1.26 },
-];
+// ── 各股除息歷史模式（用於預估下次除息日）──────────────
+const STOCK_DIV_PATTERNS = {
+  '0050':   { name: '元大台灣50',        lastEx: '2026-01-22', lastPerShare: 1.00,  intervalDays: 182, payOffset: 20 },
+  '0056':   { name: '元大高股息',         lastEx: '2026-04-23', lastPerShare: 1.00,  intervalDays: 91,  payOffset: 21 },
+  '006208': { name: '富邦台50',           lastEx: '2025-11-18', lastPerShare: 3.448, intervalDays: 241, payOffset: 23 },
+  '00878':  { name: '國泰永續高股息',     lastEx: '2026-05-19', lastPerShare: 0.66,  intervalDays: 91,  payOffset: 24 },
+  '009816': { name: '凱基台灣TOP50',      lastEx: null,         lastPerShare: null,  intervalDays: 91,  payOffset: 25 },
+  '00918':  { name: '大華優利高填息30',   lastEx: '2026-03-19', lastPerShare: 0.62,  intervalDays: 91,  payOffset: 25 },
+};
+
+let upcomingDivSchedule = [];
+
+function _fmtD(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function buildScheduleFromPatterns() {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const schedule = [];
+
+  // 00918 已公告的確認除息日
+  if (new Date('2026-07-13') >= today) {
+    schedule.push({ code: '00918', name: '大華優利高填息30', exDate: '2026-06-18', payDate: '2026-07-13', perShare: 1.26, confirmed: true });
+  }
+
+  Object.entries(STOCK_DIV_PATTERNS).forEach(([code, cfg]) => {
+    if (code === '00918') return;
+    if (!cfg.lastEx) return;
+    const nextExD = new Date(cfg.lastEx);
+    nextExD.setDate(nextExD.getDate() + cfg.intervalDays);
+    const nextPayD = new Date(nextExD);
+    nextPayD.setDate(nextPayD.getDate() + cfg.payOffset);
+    if (nextExD >= today) {
+      schedule.push({ code, name: cfg.name, exDate: _fmtD(nextExD), payDate: _fmtD(nextPayD), perShare: cfg.lastPerShare, confirmed: false });
+    }
+  });
+
+  return schedule.sort((a, b) => a.exDate.localeCompare(b.exDate));
+}
+
+function initUpcomingDivSchedule() {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const saved = load('fin_upcoming_divs', null);
+  upcomingDivSchedule = (saved && saved.length) ? saved : buildScheduleFromPatterns();
+  // 過濾掉配息日已過的項目
+  upcomingDivSchedule = upcomingDivSchedule.filter(d => new Date(d.payDate) >= today);
+  save('fin_upcoming_divs', upcomingDivSchedule);
+}
 
 function renderUpcomingDividends() {
   const el = document.getElementById('upcoming-div-rows');
   if (!el) return;
   const today = new Date(); today.setHours(0, 0, 0, 0);
-
-  const upcoming = upcomingDividendSchedule.filter(d => new Date(d.payDate) >= today);
+  const upcoming = upcomingDivSchedule.filter(d => new Date(d.payDate) >= today);
 
   if (!upcoming.length) {
     el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">近期無除息計畫</div>';
@@ -760,10 +803,9 @@ function renderUpcomingDividends() {
   }
 
   const holdings = calcHoldings();
-
   el.innerHTML =
     `<div class="div-sched-head">
-      <span>股票</span><span>除息日</span><span>距今</span><span>配息日</span><span>每股配息</span><span>預計收益</span>
+      <span>股票</span><span>除息日</span><span>距今</span><span>配息日</span><span>每股</span><span>預計收益</span>
     </div>` +
     upcoming.map(d => {
       const exD = new Date(d.exDate); exD.setHours(0, 0, 0, 0);
@@ -771,16 +813,58 @@ function renderUpcomingDividends() {
       const daysLabel = daysToEx > 0 ? `${daysToEx} 天後` : daysToEx === 0 ? '今天！' : '已除息';
       const urgent = daysToEx >= 0 && daysToEx <= 5;
       const h = holdings[d.code];
-      const estIncome = h ? Math.round(d.perShare * h.shares) : null;
+      const estIncome = h && d.perShare ? Math.round(d.perShare * h.shares) : null;
+      const badge = d.confirmed ? '' : ' <span class="div-est-badge">預估</span>';
       return `<div class="div-sched-row${urgent ? ' div-sched-urgent' : ''}">
-        <div><div class="stock-name">${esc(d.name)}</div><div class="stock-code">${esc(d.code)}</div></div>
+        <div><div class="stock-name">${esc(d.name)}${badge}</div><div class="stock-code">${esc(d.code)}</div></div>
         <div>${d.exDate}</div>
-        <div class="${urgent ? 'pnl-pos' : ''}" style="font-weight:${urgent?'700':'400'}">${daysLabel}</div>
+        <div class="${urgent ? 'pnl-pos' : ''}" style="font-weight:${urgent?700:400}">${daysLabel}</div>
         <div>${d.payDate}</div>
-        <div>$${d.perShare}</div>
+        <div>${d.perShare != null ? '$'+d.perShare : '—'}</div>
         <div class="pnl-pos">${estIncome !== null ? fmt(estIncome) : '—'}</div>
       </div>`;
     }).join('');
+}
+
+// 按下「更新股價」時同步查詢 TWSE 當日除息事件，自動更新排程
+async function fetchAndUpdateDividendSchedule() {
+  const today = new Date();
+  const ds = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
+  try {
+    const res  = await fetch(`https://www.twse.com.tw/exchangeReport/TWT49U?response=json&strDate=${ds}&endDate=${ds}`);
+    const data = await res.json();
+    if (data.stat !== 'OK' || !data.data) return;
+
+    let changed = false;
+    data.data.forEach(row => {
+      const code = row[1];
+      if (!STOCK_DIV_PATTERNS[code]) return;
+      const m = row[0].match(/(\d+)年(\d+)月(\d+)日/);
+      if (!m) return;
+      const exDate     = `${parseInt(m[1])+1911}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+      const perShare   = parseFloat(row[5]);
+      const cfg        = STOCK_DIV_PATTERNS[code];
+      cfg.lastEx       = exDate;
+      cfg.lastPerShare = perShare;
+
+      const nextExD  = new Date(exDate); nextExD.setDate(nextExD.getDate() + cfg.intervalDays);
+      const nextPayD = new Date(nextExD); nextPayD.setDate(nextPayD.getDate() + cfg.payOffset);
+
+      // 移除同代號舊預估項目，加入新預測項目
+      upcomingDivSchedule = upcomingDivSchedule.filter(e => e.code !== code);
+      upcomingDivSchedule.push({ code, name: cfg.name, exDate: _fmtD(nextExD), payDate: _fmtD(nextPayD), perShare, confirmed: false });
+      changed = true;
+      console.log(`[DivSchedule] ${code} 今日除息 $${perShare}，下次預估 ${_fmtD(nextExD)}`);
+    });
+
+    if (changed) {
+      upcomingDivSchedule.sort((a, b) => a.exDate.localeCompare(b.exDate));
+      save('fin_upcoming_divs', upcomingDivSchedule);
+      renderUpcomingDividends();
+    }
+  } catch(e) {
+    console.warn('[DivSchedule] TWSE 查詢失敗:', e.message);
+  }
 }
 
 // ── 投資追蹤渲染 ─────────────────────────────────────────
@@ -1070,6 +1154,9 @@ async function refreshPrices() {
   }
 
   if (btn) { btn.textContent = '🔄 更新股價'; btn.disabled = false; }
+
+  // 同步查詢 TWSE 當日除息事件，自動更新除息排程
+  fetchAndUpdateDividendSchedule();
 
   if (successCount === 0 && !divUpdated) {
     alert('無法取得資料\n\n可能原因：\n• 非台股交易時間（09:00–13:30）\n• 網路或 CORS 問題\n\n請稍後再試');
@@ -1506,6 +1593,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
   document.getElementById('cat-confirm-btn').addEventListener('click', confirmCat);
 
+  initUpcomingDivSchedule();
   renderAll();
   // 雲端同步由 firebase-config.js 的 onAuthStateChanged 觸發
 });
