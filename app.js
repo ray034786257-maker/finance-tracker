@@ -345,6 +345,9 @@ function applyExternalPrices() {
   if (!stockDividends && window.STOCK_DIVIDENDS) {
     stockDividends = { ...window.STOCK_DIVIDENDS };
   }
+  // 若有手動更新記錄，優先顯示手動更新時間而非 prices.js 靜態時間
+  const manualUpdated = load('fin_prices_updated', null);
+  if (manualUpdated) window.PRICES_UPDATED = manualUpdated;
   persistStock();
 }
 
@@ -1142,6 +1145,7 @@ async function refreshPrices() {
     window.STOCK_PREV_PRICES = { ...(window.STOCK_PREV_PRICES || {}), ...newPrevPrices };
     const now = new Date();
     window.PRICES_UPDATED = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    save('fin_prices_updated', window.PRICES_UPDATED);
   }
 
   // 不論股價是否成功，只要有配息資料就更新
