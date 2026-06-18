@@ -1597,6 +1597,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
   document.getElementById('cat-confirm-btn').addEventListener('click', confirmCat);
 
+  // 投資頁 Tab 切換
+  document.querySelectorAll('.invest-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.invest-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.invest-pane').forEach(p => p.style.display = 'none');
+      btn.classList.add('active');
+      document.querySelector(`.invest-pane[data-ipane="${btn.dataset.itab}"]`).style.display = 'block';
+    });
+  });
+
   initUpcomingDivSchedule();
   renderAll();
   // 雲端同步由 firebase-config.js 的 onAuthStateChanged 觸發

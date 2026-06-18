@@ -157,7 +157,9 @@
     <!-- ══ 頁面：投資 ══ -->
     <div id="page-invest" class="page hidden">
       <section class="section" id="invest-section">
-        <div class="section-header space-between">
+
+        <!-- 標題列 -->
+        <div class="section-header space-between" style="margin-bottom:10px">
           <h2 class="section-title">📈 投資追蹤</h2>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn-ghost" id="btn-refresh-prices" onclick="refreshPrices()">🔄 更新股價</button>
@@ -165,69 +167,89 @@
             <button class="btn-ghost" id="btn-add-dividend">＋ 股息記錄</button>
           </div>
         </div>
-        <div class="stats-row" style="margin-bottom:20px">
-          <div class="stat-callout income">
-            <div class="stat-emoji">💼</div>
-            <div class="stat-body"><div class="stat-label">投入成本</div><div class="stat-value" id="inv-cost">$0</div></div>
-          </div>
-          <div class="stat-callout balance">
-            <div class="stat-emoji">📊</div>
-            <div class="stat-body"><div class="stat-label">目前市值</div><div class="stat-value" id="inv-value">$0</div></div>
-          </div>
-          <div class="stat-callout" id="inv-pnl-card" style="border-color:#c3d2fa;background:#eef3ff">
-            <div class="stat-emoji">📉</div>
-            <div class="stat-body"><div class="stat-label">未實現損益</div><div class="stat-value" id="inv-unrealized">$0</div></div>
-          </div>
-          <div class="stat-callout total">
-            <div class="stat-emoji">💰</div>
-            <div class="stat-body"><div class="stat-label">已實現損益</div><div class="stat-value" id="inv-realized">$0</div></div>
-          </div>
-        </div>
-        <div style="margin-bottom:20px">
-          <div class="inv-table-head">
-            <span>股票</span><span>股數</span><span>平均成本</span>
-            <span>現價（可編輯）</span><span>今日漲跌</span><span>市值</span><span>未實現損益</span><span>報酬率</span>
-          </div>
-          <div id="holdings-table"></div>
-        </div>
-        <div id="prices-update-bar" style="font-size:12px;color:var(--text3);margin-bottom:12px;padding:6px 12px;background:var(--bg2);border-radius:var(--radius-sm)">
+
+        <!-- 股價更新時間（永遠顯示） -->
+        <div id="prices-update-bar" style="font-size:12px;color:var(--text3);margin-bottom:14px;padding:6px 12px;background:var(--bg2);border-radius:var(--radius-sm)">
           📡 股價資料：<span id="prices-update-time">載入中…</span>
           　　<span id="prices-update-note" style="color:var(--income-fg)"></span>
         </div>
-        <div class="panel" style="margin-bottom:20px;padding:18px">
-          <div class="chart-card-title">📅 即將除息提醒</div>
-          <div id="upcoming-div-rows"></div>
+
+        <!-- Tab 導覽列 -->
+        <div class="invest-tabs">
+          <button class="invest-tab active" data-itab="holding">📊 持倉總覽</button>
+          <button class="invest-tab" data-itab="dividend">💰 配息管理</button>
+          <button class="invest-tab" data-itab="history">📋 交易紀錄</button>
         </div>
-        <div class="panel" style="margin-bottom:20px;padding:18px">
-          <div class="chart-card-title">💸 持股配息資訊（年化殖利率）</div>
-          <div id="dividend-info-table">
-            <div class="inv-table-head" style="grid-template-columns:1.6fr 0.8fr 0.9fr 1fr 1fr 1fr 0.8fr">
-              <span>股票</span><span>現價</span><span>配息頻率</span><span>年化殖利率</span><span>最近單次配息</span><span>預估年配息</span><span>佔比</span>
+
+        <!-- ── Tab 1：持倉總覽 ── -->
+        <div class="invest-pane" data-ipane="holding">
+          <div class="stats-row" style="margin-bottom:20px">
+            <div class="stat-callout income">
+              <div class="stat-emoji">💼</div>
+              <div class="stat-body"><div class="stat-label">投入成本</div><div class="stat-value" id="inv-cost">$0</div></div>
             </div>
-            <div id="dividend-info-rows"></div>
+            <div class="stat-callout balance">
+              <div class="stat-emoji">📊</div>
+              <div class="stat-body"><div class="stat-label">目前市值</div><div class="stat-value" id="inv-value">$0</div></div>
+            </div>
+            <div class="stat-callout" id="inv-pnl-card" style="border-color:#c3d2fa;background:#eef3ff">
+              <div class="stat-emoji">📉</div>
+              <div class="stat-body"><div class="stat-label">未實現損益</div><div class="stat-value" id="inv-unrealized">$0</div></div>
+            </div>
+            <div class="stat-callout total">
+              <div class="stat-emoji">💰</div>
+              <div class="stat-body"><div class="stat-label">已實現損益</div><div class="stat-value" id="inv-realized">$0</div></div>
+            </div>
+          </div>
+          <div class="panel" style="padding:18px">
+            <div class="inv-table-head">
+              <span>股票</span><span>股數</span><span>平均成本</span>
+              <span>現價</span><span>今日漲跌</span><span>市值</span><span>未實現損益</span><span>報酬率</span>
+            </div>
+            <div id="holdings-table"></div>
           </div>
         </div>
-        <div class="two-col" style="margin-bottom:20px">
-          <div class="panel" style="margin-bottom:0">
-            <div class="chart-card-title">🎁 股息收益</div>
-            <div class="inv-stat-row"><span>總股息收入</span><span id="inv-dividend-total" class="inv-stat-val income">$0</span></div>
-            <div id="dividend-list" style="margin-top:8px"></div>
+
+        <!-- ── Tab 2：配息管理 ── -->
+        <div class="invest-pane" data-ipane="dividend" style="display:none">
+          <div class="panel" style="margin-bottom:16px;padding:18px">
+            <div class="chart-card-title">📅 即將除息提醒</div>
+            <div id="upcoming-div-rows"></div>
           </div>
-          <div class="panel" style="margin-bottom:0">
-            <div class="chart-card-title">📋 已實現交易</div>
-            <div id="realized-list"></div>
+          <div class="panel" style="margin-bottom:16px;padding:18px">
+            <div class="chart-card-title">💸 年化殖利率</div>
+            <div id="dividend-info-table">
+              <div class="inv-table-head" style="grid-template-columns:1.6fr 0.8fr 0.9fr 1fr 1fr 1fr 0.8fr">
+                <span>股票</span><span>現價</span><span>配息頻率</span><span>年化殖利率</span><span>最近單次配息</span><span>預估年配息</span><span>佔比</span>
+              </div>
+              <div id="dividend-info-rows"></div>
+            </div>
+          </div>
+          <div class="two-col">
+            <div class="panel" style="margin-bottom:0">
+              <div class="chart-card-title">🎁 股息收益</div>
+              <div class="inv-stat-row"><span>總股息收入</span><span id="inv-dividend-total" class="inv-stat-val income">$0</span></div>
+              <div id="dividend-list" style="margin-top:8px"></div>
+            </div>
+            <div class="panel" style="margin-bottom:0">
+              <div class="chart-card-title">📋 已實現損益</div>
+              <div id="realized-list"></div>
+            </div>
           </div>
         </div>
-        <div>
-          <div class="section-header space-between" style="margin-bottom:10px">
-            <div class="chart-card-title" style="margin:0">📒 交易記錄</div>
+
+        <!-- ── Tab 3：交易紀錄 ── -->
+        <div class="invest-pane" data-ipane="history" style="display:none">
+          <div class="panel" style="padding:18px">
+            <div class="chart-card-title" style="margin-bottom:12px">📒 交易記錄</div>
+            <div class="inv-tx-head">
+              <span>日期</span><span>類型</span><span>股票</span><span>股數</span>
+              <span>價格</span><span>手續費</span><span>總金額</span><span></span>
+            </div>
+            <div id="stock-tx-list"></div>
           </div>
-          <div class="inv-tx-head">
-            <span>日期</span><span>類型</span><span>股票</span><span>股數</span>
-            <span>價格</span><span>手續費</span><span>總金額</span><span></span>
-          </div>
-          <div id="stock-tx-list"></div>
         </div>
+
       </section>
     </div><!-- /page-invest -->
 
