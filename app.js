@@ -926,6 +926,29 @@ function renderInvest() {
   document.getElementById('inv-value').textContent     = fmt(Math.round(totalValue));
   document.getElementById('inv-dividend-total').textContent = fmt(divTotal);
 
+  // 報酬率摘要
+  if (totalCost > 0) {
+    const retNC  = unrealized / totalCost * 100;                       // 不含息
+    const retTot = (unrealized + divTotal) / totalCost * 100;          // 含息
+    const sign = v => v >= 0 ? '+' : '';
+    const cls  = v => v >= 0 ? 'pnl-pos' : 'pnl-neg';
+
+    const elNC  = document.getElementById('inv-return-nocoupon');
+    const elTot = document.getElementById('inv-return-total');
+    if (elNC) {
+      elNC.textContent = sign(retNC) + retNC.toFixed(2) + '%';
+      elNC.className = 'inv-return-val ' + cls(retNC);
+      document.getElementById('inv-return-nocoupon-amt').textContent =
+        sign(unrealized) + fmt(Math.round(unrealized)) + ' 元';
+    }
+    if (elTot) {
+      elTot.textContent = sign(retTot) + retTot.toFixed(2) + '%';
+      elTot.className = 'inv-return-val ' + cls(retTot);
+      document.getElementById('inv-return-total-amt').textContent =
+        sign(unrealized + divTotal) + fmt(Math.round(unrealized + divTotal)) + ' 元（含股息 ' + fmt(divTotal) + '）';
+    }
+  }
+
   const urEl = document.getElementById('inv-unrealized');
   urEl.textContent = (unrealized >= 0 ? '+' : '') + fmt(Math.round(unrealized));
   urEl.className   = 'stat-value ' + pnlClass(unrealized);
