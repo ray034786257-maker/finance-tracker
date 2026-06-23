@@ -808,7 +808,7 @@ function renderUpcomingDividends() {
   const holdings = calcHoldings();
   el.innerHTML =
     `<div class="div-sched-head">
-      <span>股票</span><span>除息日</span><span>距今</span><span>配息日</span><span>每股</span><span>預計收益</span>
+      <span>股票</span><span>除息日</span><span>距今</span><span>配息日</span><span>每股</span><span>預計收益</span><span></span>
     </div>` +
     upcoming.map(d => {
       const exD = new Date(d.exDate); exD.setHours(0, 0, 0, 0);
@@ -818,6 +818,9 @@ function renderUpcomingDividends() {
       const h = holdings[d.code];
       const estIncome = h && d.perShare ? Math.round(d.perShare * h.shares) : null;
       const badge = d.confirmed ? '' : ' <span class="div-est-badge">預估</span>';
+      const actionBtn = d.recorded
+        ? `<span class="div-recorded-badge">✓ 已記錄</span>`
+        : `<button class="btn-ghost" style="font-size:11px;padding:4px 8px" onclick="recordDividendFromSchedule('${esc(d.code)}','${d.exDate}')">＋ 記錄配息</button>`;
       return `<div class="div-sched-row${urgent ? ' div-sched-urgent' : ''}">
         <div><div class="stock-name">${esc(d.name)}${badge}</div><div class="stock-code">${esc(d.code)}</div></div>
         <div>${d.exDate}</div>
@@ -825,8 +828,41 @@ function renderUpcomingDividends() {
         <div>${d.payDate}</div>
         <div>${d.perShare != null ? '$'+d.perShare : '—'}</div>
         <div class="pnl-pos">${estIncome !== null ? fmt(estIncome) : '—'}</div>
+        <div>${actionBtn}</div>
       </div>`;
     }).join('');
+}
+
+function recordDividendFromSchedule(code, exDate) {
+  const entry = upcomingDivSchedule.find(e => e.code === code && e.exDate === exDate);
+  if (!entry) return;
+  if (!entry.perShare) { alert('每股配息資料不足，請改用手動記錄'); return; }
+
+  const h = calcHoldings()[code];
+  if (!h || !h.shares) { alert('找不到持股資料'); return; }
+
+  // 防止重複記錄
+  const duplicate = dividends.some(d => d.code === code && d.date === entry.payDate);
+  if (duplicate) {
+    if (!confirm(`${entry.name} 在 ${entry.payDate} 的股息已記錄過，仍要再新增一筆嗎？`)) return;
+  }
+
+  const total = Math.round(entry.perShare * h.shares);
+  dividends.push({
+    id: uid(), code, name: entry.name,
+    date: entry.payDate, perShare: entry.perShare,
+    shares: h.shares, total,
+    note: `除息日 ${entry.exDate}`
+  });
+
+  // 標記為已記錄
+  upcomingDivSchedule = upcomingDivSchedule.map(e =>
+    (e.code === code && e.exDate === exDate) ? { ...e, recorded: true } : e
+  );
+
+  persistStock();
+  save('fin_upcoming_divs', upcomingDivSchedule);
+  renderInvest();
 }
 
 // 按下「更新股價」時同步查詢 TWSE 當日除息事件，自動更新排程
