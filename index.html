@@ -240,6 +240,21 @@
               <div id="dividend-info-rows"></div>
             </div>
           </div>
+          <div class="panel" style="margin-bottom:16px;padding:18px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div class="chart-card-title" style="margin:0">📈 年度股息收入趨勢</div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span id="div-chart-year-total" style="font-size:13px;font-weight:700;color:var(--income-fg)">$0</span>
+                <div class="month-nav" style="gap:6px">
+                  <button class="month-btn" id="div-chart-prev-year">‹</button>
+                  <span id="div-chart-year-label" style="font-size:14px;font-weight:700;min-width:56px;text-align:center"></span>
+                  <button class="month-btn" id="div-chart-next-year">›</button>
+                </div>
+              </div>
+            </div>
+            <div style="height:200px"><canvas id="chart-div-trend"></canvas></div>
+          </div>
+
           <div class="two-col">
             <div class="panel" style="margin-bottom:0">
               <div class="chart-card-title">🎁 股息收益</div>

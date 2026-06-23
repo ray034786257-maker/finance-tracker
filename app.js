@@ -1073,6 +1073,71 @@ function renderInvest() {
   ).join('') || '<div class="empty-state">尚無交易記錄</div>';
 
   renderUpcomingDividends();
+  renderDividendTrendChart();
+}
+
+// ── 年度股息收入趨勢圖 ──────────────────────────────────
+let divChartYear = new Date().getFullYear();
+let _divTrendChart = null;
+
+const DIV_COLORS = {
+  '0050':'#4f7cff','0056':'#10b981','006208':'#f59e0b',
+  '00878':'#8b5cf6','009816':'#06b6d4','00918':'#f43f5e',
+};
+const DIV_FALLBACK_COLORS = ['#4f7cff','#10b981','#f59e0b','#8b5cf6','#06b6d4','#f43f5e','#64748b','#ec4899'];
+
+function renderDividendTrendChart() {
+  const canvas = document.getElementById('chart-div-trend');
+  if (!canvas) return;
+
+  const year = divChartYear;
+  const labelEl = document.getElementById('div-chart-year-label');
+  const totalEl = document.getElementById('div-chart-year-total');
+  if (labelEl) labelEl.textContent = year + ' 年';
+
+  const monthKeys   = Array.from({length:12}, (_,i) => `${year}-${String(i+1).padStart(2,'0')}`);
+  const monthLabels = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+  // 整理各股代號
+  const codeMap = {};
+  dividends.forEach(d => { codeMap[d.code] = d.name; });
+  const codes = Object.keys(codeMap);
+
+  const datasets = codes.map((code, i) => ({
+    label: `${codeMap[code]} (${code})`,
+    data: monthKeys.map(mk =>
+      dividends.filter(d => d.code === code && d.date.startsWith(mk))
+               .reduce((s, d) => s + d.total, 0)
+    ),
+    backgroundColor: DIV_COLORS[code] || DIV_FALLBACK_COLORS[i % DIV_FALLBACK_COLORS.length],
+    borderRadius: 3,
+    borderSkipped: false,
+  }));
+
+  const yearTotal = dividends.filter(d => d.date.startsWith(String(year)))
+                             .reduce((s, d) => s + d.total, 0);
+  if (totalEl) totalEl.textContent = yearTotal ? '$' + yearTotal.toLocaleString() : '$0';
+
+  if (_divTrendChart) _divTrendChart.destroy();
+  _divTrendChart = new Chart(canvas, {
+    type: 'bar',
+    data: { labels: monthLabels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 }, padding: 12 } },
+        tooltip: {
+          callbacks: {
+            footer: items => '合計：$' + items.reduce((s, i) => s + i.raw, 0).toLocaleString()
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { stacked: true, ticks: { font: { size: 11 }, callback: v => v ? '$'+v.toLocaleString() : '' }, grid: { color: 'rgba(0,0,0,.05)' } }
+      }
+    }
+  });
 }
 
 function updatePrice(code, val) {
@@ -1655,6 +1720,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(e.target===document.getElementById('cat-overlay')) closeCatModal();
   });
   document.getElementById('cat-confirm-btn').addEventListener('click', confirmCat);
+
+  // 股息趨勢圖年份切換
+  document.getElementById('div-chart-prev-year').addEventListener('click', () => { divChartYear--; renderDividendTrendChart(); });
+  document.getElementById('div-chart-next-year').addEventListener('click', () => { divChartYear++; renderDividendTrendChart(); });
 
   // 投資頁 Tab 切換
   document.querySelectorAll('.invest-tab').forEach(btn => {
