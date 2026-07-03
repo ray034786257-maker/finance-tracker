@@ -748,7 +748,7 @@ function checkMonthlyReminder() {
 // ── 各股除息歷史模式（用於預估下次除息日）──────────────
 const STOCK_DIV_PATTERNS = {
   '0050':   { name: '元大台灣50',        lastEx: '2026-01-22', lastPerShare: 1.00,  intervalDays: 182, payOffset: 20 },
-  '0056':   { name: '元大高股息',         lastEx: '2026-04-23', lastPerShare: 1.00,  intervalDays: 91,  payOffset: 21 },
+  '0056':   { name: '元大高股息',         lastEx: '2026-04-23', lastPerShare: 0.866, intervalDays: 91,  payOffset: 21 },
   '006208': { name: '富邦台50',           lastEx: '2025-11-18', lastPerShare: 3.448, intervalDays: 241, payOffset: 23 },
   '00878':  { name: '國泰永續高股息',     lastEx: '2026-05-19', lastPerShare: 0.66,  intervalDays: 91,  payOffset: 24 },
   '009816': { name: '凱基台灣TOP50',      lastEx: null,         lastPerShare: null,  intervalDays: 91,  payOffset: 25 },
@@ -765,13 +765,20 @@ function buildScheduleFromPatterns() {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const schedule = [];
 
-  // 00918 已公告的確認除息日
+  // 已公告的確認除息日（優先於預估，配息日過後自動消失）
   if (new Date('2026-07-13') >= today) {
     schedule.push({ code: '00918', name: '大華優利高填息30', exDate: '2026-06-18', payDate: '2026-07-13', perShare: 1.26, confirmed: true });
   }
+  if (new Date('2026-08-08') >= today) {
+    schedule.push({ code: '006208', name: '富邦台50',     exDate: '2026-07-16', payDate: '2026-08-08', perShare: 4.75,  confirmed: true });
+  }
+  if (new Date('2026-08-10') >= today) {
+    schedule.push({ code: '0050', name: '元大台灣50',   exDate: '2026-07-21', payDate: '2026-08-10', perShare: 0.60,  confirmed: true });
+    schedule.push({ code: '0056', name: '元大高股息',   exDate: '2026-07-21', payDate: '2026-08-10', perShare: 1.35,  confirmed: true });
+  }
 
   Object.entries(STOCK_DIV_PATTERNS).forEach(([code, cfg]) => {
-    if (code === '00918') return;
+    if (code === '00918' || code === '0050' || code === '0056' || code === '006208') return; // 已有確認項目，略過估算
     if (!cfg.lastEx) return;
     const nextExD = new Date(cfg.lastEx);
     nextExD.setDate(nextExD.getDate() + cfg.intervalDays);
@@ -787,11 +794,25 @@ function buildScheduleFromPatterns() {
 
 function initUpcomingDivSchedule() {
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const saved = load('fin_upcoming_divs', null);
-  upcomingDivSchedule = (saved && saved.length) ? saved : buildScheduleFromPatterns();
+  const saved = load('fin_upcoming_divs_v2', null);
+  const fresh = buildScheduleFromPatterns();
+
+  if (saved && saved.length) {
+    // 確認項目（程式碼寫死）永遠優先，覆蓋 localStorage 同代號的舊資料
+    const confirmedCodes = new Set(fresh.filter(e => e.confirmed).map(e => e.code));
+    const merged = [
+      ...fresh.filter(e => e.confirmed),
+      ...saved.filter(e => !confirmedCodes.has(e.code)),
+    ];
+    merged.sort((a, b) => a.exDate.localeCompare(b.exDate));
+    upcomingDivSchedule = merged;
+  } else {
+    upcomingDivSchedule = fresh;
+  }
+
   // 過濾掉配息日已過的項目
   upcomingDivSchedule = upcomingDivSchedule.filter(d => new Date(d.payDate) >= today);
-  save('fin_upcoming_divs', upcomingDivSchedule);
+  save('fin_upcoming_divs_v2', upcomingDivSchedule);
 }
 
 function renderUpcomingDividends() {
@@ -861,7 +882,7 @@ function recordDividendFromSchedule(code, exDate) {
   );
 
   persistStock();
-  save('fin_upcoming_divs', upcomingDivSchedule);
+  save('fin_upcoming_divs_v2', upcomingDivSchedule);
   renderInvest();
 }
 
@@ -898,7 +919,7 @@ async function fetchAndUpdateDividendSchedule() {
 
     if (changed) {
       upcomingDivSchedule.sort((a, b) => a.exDate.localeCompare(b.exDate));
-      save('fin_upcoming_divs', upcomingDivSchedule);
+      save('fin_upcoming_divs_v2', upcomingDivSchedule);
       renderUpcomingDividends();
     }
   } catch(e) {
@@ -1074,6 +1095,69 @@ function renderInvest() {
 
   renderUpcomingDividends();
   renderDividendTrendChart();
+  checkPendingDividends();
+}
+
+// ── 配息待記錄提醒 ─────────────────────────────────────
+function checkPendingDividends() {
+  const bar = document.getElementById('div-remind-bar');
+  if (!bar) return;
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const holdings = calcHoldings();
+  const pending = upcomingDivSchedule.filter(d =>
+    !d.recorded && d.perShare != null && new Date(d.payDate) < today
+  );
+
+  if (!pending.length) { bar.classList.add('hidden'); return; }
+
+  const totalIncome = pending.reduce((s, d) => {
+    const h = holdings[d.code];
+    return s + (h && d.perShare ? Math.round(d.perShare * h.shares) : 0);
+  }, 0);
+
+  document.getElementById('div-remind-title').innerHTML =
+    `💰 有 ${pending.length} 筆配息已到帳，尚未記錄` +
+    (totalIncome ? `，合計 <b style="color:var(--income-fg)">$${totalIncome.toLocaleString()}</b>` : '');
+
+  document.getElementById('div-remind-items').innerHTML = pending.map(d => {
+    const h = holdings[d.code];
+    const income = h && d.perShare ? '$' + Math.round(d.perShare * h.shares).toLocaleString() : '';
+    return `${d.name}（配息日 ${d.payDate}${income ? ' · ' + income : ''}）`;
+  }).join('　');
+
+  bar.classList.remove('hidden');
+
+  // 重新綁定按鈕（避免重複 listener）
+  const confirmBtn = document.getElementById('div-remind-confirm');
+  const dismissBtn = document.getElementById('div-remind-dismiss');
+  const newConfirm = confirmBtn.cloneNode(true);
+  const newDismiss = dismissBtn.cloneNode(true);
+  confirmBtn.parentNode.replaceChild(newConfirm, confirmBtn);
+  dismissBtn.parentNode.replaceChild(newDismiss, dismissBtn);
+
+  newConfirm.addEventListener('click', () => {
+    pending.forEach(d => _recordDividendSilent(d.code, d.exDate));
+    bar.classList.add('hidden');
+    renderInvest();
+  });
+  newDismiss.addEventListener('click', () => bar.classList.add('hidden'));
+}
+
+function _recordDividendSilent(code, exDate) {
+  const entry = upcomingDivSchedule.find(e => e.code === code && e.exDate === exDate);
+  if (!entry || !entry.perShare) return;
+  const h = calcHoldings()[code];
+  if (!h || !h.shares) return;
+  // 跳過重複
+  if (dividends.some(d => d.code === code && d.date === entry.payDate)) return;
+  const total = Math.round(entry.perShare * h.shares);
+  dividends.push({ id: uid(), code, name: entry.name, date: entry.payDate, perShare: entry.perShare, shares: h.shares, total, note: `除息日 ${entry.exDate}` });
+  upcomingDivSchedule = upcomingDivSchedule.map(e =>
+    (e.code === code && e.exDate === exDate) ? { ...e, recorded: true } : e
+  );
+  persistStock();
+  save('fin_upcoming_divs_v2', upcomingDivSchedule);
 }
 
 // ── 年度股息收入趨勢圖 ──────────────────────────────────

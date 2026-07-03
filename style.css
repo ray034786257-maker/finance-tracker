@@ -666,6 +666,21 @@ body {
 .salary-col.bonus  { color: #4d7c0f; }
 .salary-col.total  { color: var(--balance-fg); }
 
+/* ── 配息待記錄提醒列 ── */
+.div-remind-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #f0fdf4;
+  border: 1.5px solid var(--income-fg);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.div-remind-bar.hidden { display: none; }
+
 /* ── 投資報酬率摘要列 ── */
 .inv-return-bar {
   display: flex;

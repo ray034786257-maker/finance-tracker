@@ -19,8 +19,8 @@ window.STOCK_PREV_PRICES = {
 window.STOCK_DIVIDENDS = {
   // timesPerYear: 每年配息次數；lastDiv: 最近一次單次配息金額（元/股）
   // 資料來源：各大財經網站，更新日期：2026-07-03
-  "0050":   { lastDiv: 1.00,  timesPerYear: 2,  frequency: '每半年配息' }, // 2026/01 配 $1.00，每半年配一次
-  "0056":   { lastDiv: 1.00,  timesPerYear: 4,  frequency: '每季配息'   }, // 2026/Q2 配 $1.00（創近9個月新高），每季配息
+  "0050":   { lastDiv: 0.60,  timesPerYear: 2,  frequency: '每半年配息' }, // 2026/07/21 除息 $0.60（H1 2026），每半年配一次
+  "0056":   { lastDiv: 1.35,  timesPerYear: 4,  frequency: '每季配息'   }, // 2026/07/21 除息 $1.35（Q2 2026，創單季新高），每季配息
   "00918":  { lastDiv: 1.26,  timesPerYear: 4,  frequency: '每季配息'   }, // 2026/Q2 配 $1.26（較上季翻倍），每季配息
   "006208": { lastDiv: 4.75,  timesPerYear: 2,  frequency: '每半年配息' }, // 2026/07/16 除息 $4.75（創歷史新高），每半年配一次
   "00878":  { lastDiv: 0.66,  timesPerYear: 4,  frequency: '每季配息'   }, // 2026/05 配 $0.66，每季配息
