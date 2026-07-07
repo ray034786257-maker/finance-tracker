@@ -341,9 +341,16 @@ function applyExternalPrices() {
   Object.entries(window.STOCK_PRICES).forEach(([code, price]) => {
     stockPrices[code] = price;
   });
-  // 若 localStorage 無配息資料，使用 prices.js 的靜態預設值
-  if (!stockDividends && window.STOCK_DIVIDENDS) {
-    stockDividends = { ...window.STOCK_DIVIDENDS };
+  // prices.js 的 lastDiv 永遠覆蓋 localStorage 舊值（prices.js 由排程維護，最新）
+  if (window.STOCK_DIVIDENDS) {
+    if (!stockDividends) stockDividends = {};
+    Object.entries(window.STOCK_DIVIDENDS).forEach(([code, data]) => {
+      if (!stockDividends[code]) {
+        stockDividends[code] = { ...data };
+      } else {
+        stockDividends[code].lastDiv = data.lastDiv;
+      }
+    });
   }
   // 若有手動更新記錄，優先顯示手動更新時間而非 prices.js 靜態時間
   const manualUpdated = load('fin_prices_updated', null);
