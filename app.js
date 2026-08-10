@@ -1830,6 +1830,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 
   initUpcomingDivSchedule();
+  initFx();
   renderAll();
   // 雲端同步由 firebase-config.js 的 onAuthStateChanged 觸發
 });
@@ -1913,4 +1914,166 @@ function deleteCat(id){
   if(!confirm('確定刪除此分類？（相關記錄不受影響）')) return;
   categories = categories.filter(c=>c.id!==id);
   persist(); renderCats();
+}
+
+// ══════════════════════════════════════════════
+// ── 外幣管理 ──────────────────────────────────
+// ══════════════════════════════════════════════
+
+const FX_META = {
+  USD: { name: '美元',     flag: '🇺🇸' },
+  JPY: { name: '日圓',     flag: '🇯🇵' },
+  HKD: { name: '港幣',     flag: '🇭🇰' },
+  EUR: { name: '歐元',     flag: '🇪🇺' },
+  AUD: { name: '澳幣',     flag: '🇦🇺' },
+  CNY: { name: '人民幣',   flag: '🇨🇳' },
+  SGD: { name: '新加坡幣', flag: '🇸🇬' },
+  GBP: { name: '英鎊',     flag: '🇬🇧' },
+};
+
+let fxHoldings = load('fin_fx', null);
+let fxRates    = load('fin_fx_rates', {});
+let fxUpdated  = load('fin_fx_updated', null);
+let _fxEditId  = null;
+
+function initFx() {
+  if (!fxHoldings) {
+    fxHoldings = [
+      { id: 'fx001', code: 'USD', amount: 63.32  },
+      { id: 'fx002', code: 'JPY', amount: 53427  },
+      { id: 'fx003', code: 'HKD', amount: 101.7  },
+    ];
+    save('fin_fx', fxHoldings);
+  }
+  renderFx();
+}
+
+function saveFx() {
+  save('fin_fx', fxHoldings);
+  save('fin_fx_rates', fxRates);
+  save('fin_fx_updated', fxUpdated);
+}
+
+function renderFx() {
+  const rowsEl = document.getElementById('fx-rows');
+  if (!rowsEl) return;
+
+  let totalTwd = 0;
+  const rows = fxHoldings.map(h => {
+    const meta  = FX_META[h.code] || { name: h.code, flag: '💵' };
+    const rate  = fxRates[h.code] || null;
+    const twd   = rate ? Math.round(h.amount * rate) : null;
+    if (twd) totalTwd += twd;
+    const rateStr = rate
+      ? (h.code === 'JPY' ? `${(rate * 100).toFixed(2)} / 100` : rate.toFixed(2))
+      : '—';
+    const twdStr = twd ? fmt(twd) : '—';
+    return `<div class="fx-row">
+      <div><span class="fx-flag">${meta.flag}</span><span class="fx-code">${h.code}</span> <span class="fx-name">${meta.name}</span></div>
+      <span style="text-align:right;font-weight:600">${fmtFxAmount(h.code, h.amount)}</span>
+      <span style="text-align:right;color:var(--text2)">${rateStr}</span>
+      <span style="text-align:right;font-weight:600">${twd ? fmt(twd) : '—'}</span>
+      <div class="fx-row-actions">
+        <button class="icon-btn" onclick="openFxModal('${h.id}')" title="編輯">✏️</button>
+        <button class="icon-btn" onclick="deleteFxHolding('${h.id}')" title="刪除">🗑️</button>
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:var(--text3);font-size:13px;padding:12px 4px">尚無外幣紀錄</div>';
+
+  rowsEl.innerHTML = rows;
+
+  const totalEl = document.getElementById('fx-total-twd');
+  if (totalEl) totalEl.textContent = totalTwd ? fmt(totalTwd) : '—';
+  const countEl = document.getElementById('fx-count');
+  if (countEl) countEl.textContent = fxHoldings.length + ' 種';
+
+  const bar = document.getElementById('fx-updated-bar');
+  const timeEl = document.getElementById('fx-updated-time');
+  if (bar && fxUpdated) {
+    timeEl.textContent = fxUpdated;
+    bar.style.display = 'block';
+  }
+}
+
+function fmtFxAmount(code, amount) {
+  if (code === 'JPY' || code === 'CNY') return amount.toLocaleString() + ' ' + code;
+  return amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' ' + code;
+}
+
+async function refreshFxRates() {
+  const btn = document.getElementById('fx-refresh-btn');
+  if (btn) btn.textContent = '⏳ 更新中…';
+  try {
+    const res  = await fetch('https://open.er-api.com/v6/latest/TWD');
+    const data = await res.json();
+    if (data.result !== 'success') throw new Error('API 回傳失敗');
+    const r = data.rates;
+    Object.keys(FX_META).forEach(code => {
+      if (r[code]) fxRates[code] = 1 / r[code];
+    });
+    const now = new Date();
+    fxUpdated = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    saveFx();
+    renderFx();
+    if (btn) btn.textContent = '🔄 更新匯率';
+  } catch(e) {
+    if (btn) btn.textContent = '🔄 更新匯率';
+    alert('匯率更新失敗，請稍後再試');
+    console.warn('[FX]', e.message);
+  }
+}
+
+function openFxModal(editId) {
+  _fxEditId = editId || null;
+  const title = document.getElementById('fx-modal-title');
+  const codeEl = document.getElementById('fx-code');
+  const amtEl  = document.getElementById('fx-amount');
+  if (_fxEditId) {
+    const h = fxHoldings.find(x => x.id === _fxEditId);
+    if (!h) return;
+    title.textContent = '編輯外幣';
+    codeEl.value = h.code;
+    codeEl.disabled = true;
+    amtEl.value  = h.amount;
+  } else {
+    title.textContent = '新增外幣';
+    codeEl.disabled = false;
+    codeEl.value = 'USD';
+    amtEl.value  = '';
+  }
+  document.getElementById('fx-overlay').classList.remove('hidden');
+  amtEl.focus();
+}
+
+function closeFxModal() {
+  document.getElementById('fx-overlay').classList.add('hidden');
+  document.getElementById('fx-code').disabled = false;
+  _fxEditId = null;
+}
+
+function confirmFxModal() {
+  const code   = document.getElementById('fx-code').value;
+  const amount = parseFloat(document.getElementById('fx-amount').value);
+  if (!amount || amount <= 0) { alert('請輸入有效金額'); return; }
+  if (_fxEditId) {
+    const h = fxHoldings.find(x => x.id === _fxEditId);
+    if (h) h.amount = amount;
+  } else {
+    const exists = fxHoldings.find(x => x.code === code);
+    if (exists) { exists.amount += amount; }
+    else { fxHoldings.push({ id: uid(), code, amount }); }
+  }
+  saveFx();
+  closeFxModal();
+  renderFx();
+}
+
+function deleteFxHolding(id) {
+  const h = fxHoldings.find(x => x.id === id);
+  if (!h) return;
+  const meta = FX_META[h.code] || { name: h.code };
+  if (!confirm(`確定刪除 ${meta.name}（${h.code}）的持倉紀錄？`)) return;
+  fxHoldings = fxHoldings.filter(x => x.id !== id);
+  saveFx();
+  renderFx();
 }

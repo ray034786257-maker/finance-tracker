@@ -666,6 +666,43 @@ body {
 .salary-col.bonus  { color: #4d7c0f; }
 .salary-col.total  { color: var(--balance-fg); }
 
+/* ── 外幣頁面 ── */
+.fx-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.fx-tbl-head, .fx-row {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr 60px;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 4px;
+  border-bottom: 0.5px solid var(--border);
+  font-size: 13px;
+}
+.fx-tbl-head {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text3);
+  padding-bottom: 6px;
+}
+.fx-row:last-child { border-bottom: none; }
+.fx-row .fx-flag { font-size: 18px; margin-right: 6px; }
+.fx-row .fx-code { font-weight: 700; font-size: 14px; }
+.fx-row .fx-name { font-size: 11px; color: var(--text3); }
+.fx-row-actions { display: flex; gap: 4px; justify-content: flex-end; }
+@media (max-width: 600px) {
+  .fx-tbl-head { display: none; }
+  .fx-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 12px 4px;
+  }
+  .fx-row > span { text-align: left !important; }
+  .fx-row-actions { justify-content: flex-start; }
+}
+
 /* ── 配息待記錄提醒列 ── */
 .div-remind-bar {
   display: flex;
