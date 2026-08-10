@@ -754,12 +754,12 @@ function checkMonthlyReminder() {
 
 // ── 各股除息歷史模式（用於預估下次除息日）──────────────
 const STOCK_DIV_PATTERNS = {
-  '0050':   { name: '元大台灣50',        lastEx: '2026-01-22', lastPerShare: 1.00,  intervalDays: 182, payOffset: 20 },
-  '0056':   { name: '元大高股息',         lastEx: '2026-04-23', lastPerShare: 0.866, intervalDays: 91,  payOffset: 21 },
-  '006208': { name: '富邦台50',           lastEx: '2025-11-18', lastPerShare: 3.448, intervalDays: 241, payOffset: 23 },
+  '0050':   { name: '元大台灣50',        lastEx: '2026-07-21', lastPerShare: 0.60,  intervalDays: 182, payOffset: 20 },
+  '0056':   { name: '元大高股息',         lastEx: '2026-07-21', lastPerShare: 1.35,  intervalDays: 91,  payOffset: 21 },
+  '006208': { name: '富邦台50',           lastEx: '2026-07-16', lastPerShare: 4.75,  intervalDays: 182, payOffset: 23 },
   '00878':  { name: '國泰永續高股息',     lastEx: '2026-05-19', lastPerShare: 0.66,  intervalDays: 91,  payOffset: 24 },
   '009816': { name: '凱基台灣TOP50',      lastEx: null,         lastPerShare: null,  intervalDays: 91,  payOffset: 25 },
-  '00918':  { name: '大華優利高填息30',   lastEx: '2026-03-19', lastPerShare: 0.62,  intervalDays: 91,  payOffset: 25 },
+  '00918':  { name: '大華優利高填息30',   lastEx: '2026-06-18', lastPerShare: 1.26,  intervalDays: 91,  payOffset: 25 },
 };
 
 let upcomingDivSchedule = [];
@@ -783,9 +783,12 @@ function buildScheduleFromPatterns() {
     schedule.push({ code: '0050', name: '元大台灣50',   exDate: '2026-07-21', payDate: '2026-08-10', perShare: 0.60,  confirmed: true });
     schedule.push({ code: '0056', name: '元大高股息',   exDate: '2026-07-21', payDate: '2026-08-10', perShare: 1.35,  confirmed: true });
   }
+  if (new Date('2026-09-11') >= today) {
+    schedule.push({ code: '00878', name: '國泰永續高股息', exDate: '2026-08-18', payDate: '2026-09-11', perShare: 1.01, confirmed: true });
+  }
 
   Object.entries(STOCK_DIV_PATTERNS).forEach(([code, cfg]) => {
-    if (code === '00918' || code === '0050' || code === '0056' || code === '006208') return; // 已有確認項目，略過估算
+    if (code === '00918' || code === '0050' || code === '0056' || code === '006208' || code === '00878') return; // 已有確認項目，略過估算
     if (!cfg.lastEx) return;
     const nextExD = new Date(cfg.lastEx);
     nextExD.setDate(nextExD.getDate() + cfg.intervalDays);
