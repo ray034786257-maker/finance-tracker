@@ -1931,73 +1931,120 @@ const FX_META = {
   GBP: { name: '英鎊',     flag: '🇬🇧' },
 };
 
-let fxHoldings = load('fin_fx', null);
+// fin_fx_v2: [{id, code, amount, avgBuyRate}]  ← 持倉（avgBuyRate 可為 null）
+// fin_fx_tx: [{id, date, code, amount, buyRate, twdCost}]  ← 每筆買入記錄
+let fxHoldings = load('fin_fx_v2', null);
+let fxTxs      = load('fin_fx_tx', []);
 let fxRates    = load('fin_fx_rates', {});
 let fxUpdated  = load('fin_fx_updated', null);
-let _fxEditId  = null;
 
 function initFx() {
   if (!fxHoldings) {
     fxHoldings = [
-      { id: 'fx001', code: 'USD', amount: 63.32  },
-      { id: 'fx002', code: 'JPY', amount: 53427  },
-      { id: 'fx003', code: 'HKD', amount: 101.7  },
+      { id: 'fx001', code: 'USD', amount: 63.32,  avgBuyRate: 32.25  },
+      { id: 'fx002', code: 'JPY', amount: 53427,  avgBuyRate: 0.2047 },
+      { id: 'fx003', code: 'HKD', amount: 101.7,  avgBuyRate: null   },
     ];
-    save('fin_fx', fxHoldings);
+    save('fin_fx_v2', fxHoldings);
   }
+  fxHoldings.forEach(h => { if (!('avgBuyRate' in h)) h.avgBuyRate = null; });
   renderFx();
 }
 
 function saveFx() {
-  save('fin_fx', fxHoldings);
+  save('fin_fx_v2', fxHoldings);
+  save('fin_fx_tx', fxTxs);
   save('fin_fx_rates', fxRates);
   save('fin_fx_updated', fxUpdated);
 }
 
 function renderFx() {
-  const rowsEl = document.getElementById('fx-rows');
+  const rowsEl   = document.getElementById('fx-rows');
+  const txRowsEl = document.getElementById('fx-tx-rows');
   if (!rowsEl) return;
 
-  let totalTwd = 0;
-  const rows = fxHoldings.map(h => {
-    const meta  = FX_META[h.code] || { name: h.code, flag: '💵' };
-    const rate  = fxRates[h.code] || null;
-    const twd   = rate ? Math.round(h.amount * rate) : null;
+  let totalTwd = 0, totalPnl = 0, hasPnl = false;
+
+  // ── 持倉表格
+  rowsEl.innerHTML = fxHoldings.map(h => {
+    const meta      = FX_META[h.code] || { name: h.code, flag: '💵' };
+    const rate      = fxRates[h.code] || null;
+    const twd       = rate ? Math.round(h.amount * rate) : null;
     if (twd) totalTwd += twd;
-    const rateStr = rate
-      ? (h.code === 'JPY' ? `${(rate * 100).toFixed(2)} / 100` : rate.toFixed(2))
+
+    const buyRateStr = h.avgBuyRate != null
+      ? (h.code === 'JPY' ? (h.avgBuyRate * 100).toFixed(3) + ' /100' : h.avgBuyRate.toFixed(4))
       : '—';
-    const twdStr = twd ? fmt(twd) : '—';
+    const curRateStr = rate
+      ? (h.code === 'JPY' ? (rate * 100).toFixed(3) + ' /100' : rate.toFixed(4))
+      : '—';
+
+    let pnlStr = '—', pnlCls = '';
+    if (rate && h.avgBuyRate != null) {
+      const cost = Math.round(h.amount * h.avgBuyRate);
+      const pnl  = twd - cost;
+      totalPnl += pnl; hasPnl = true;
+      pnlStr = (pnl >= 0 ? '+' : '') + fmt(pnl);
+      pnlCls = pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
+    }
+
     return `<div class="fx-row">
       <div><span class="fx-flag">${meta.flag}</span><span class="fx-code">${h.code}</span> <span class="fx-name">${meta.name}</span></div>
-      <span style="text-align:right;font-weight:600">${fmtFxAmount(h.code, h.amount)}</span>
-      <span style="text-align:right;color:var(--text2)">${rateStr}</span>
+      <span style="text-align:right;font-weight:600">${fmtFxAmt(h.code, h.amount)}</span>
+      <span style="text-align:right;color:var(--text2)">${buyRateStr}</span>
+      <span style="text-align:right;color:var(--text2)">${curRateStr}</span>
       <span style="text-align:right;font-weight:600">${twd ? fmt(twd) : '—'}</span>
+      <span style="text-align:right" class="${pnlCls}">${pnlStr}</span>
       <div class="fx-row-actions">
-        <button class="icon-btn" onclick="openFxModal('${h.id}')" title="編輯">✏️</button>
         <button class="icon-btn" onclick="deleteFxHolding('${h.id}')" title="刪除">🗑️</button>
       </div>
     </div>`;
   }).join('') || '<div style="color:var(--text3);font-size:13px;padding:12px 4px">尚無外幣紀錄</div>';
 
-  rowsEl.innerHTML = rows;
-
+  // ── 摘要卡片
   const totalEl = document.getElementById('fx-total-twd');
   if (totalEl) totalEl.textContent = totalTwd ? fmt(totalTwd) : '—';
-  const countEl = document.getElementById('fx-count');
-  if (countEl) countEl.textContent = fxHoldings.length + ' 種';
+  const pnlEl = document.getElementById('fx-total-pnl');
+  if (pnlEl) {
+    if (hasPnl) {
+      pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + fmt(totalPnl);
+      pnlEl.className = 'stat-value ' + (totalPnl >= 0 ? 'pnl-pos' : 'pnl-neg');
+    } else {
+      pnlEl.textContent = '—';
+      pnlEl.className = 'stat-value';
+    }
+  }
 
+  // ── 匯率更新時間
   const bar = document.getElementById('fx-updated-bar');
-  const timeEl = document.getElementById('fx-updated-time');
   if (bar && fxUpdated) {
-    timeEl.textContent = fxUpdated;
+    document.getElementById('fx-updated-time').textContent = fxUpdated;
     bar.style.display = 'block';
   }
+
+  // ── 買入記錄
+  if (!txRowsEl) return;
+  const sorted = [...fxTxs].sort((a, b) => b.date.localeCompare(a.date));
+  txRowsEl.innerHTML = sorted.map(t => {
+    const meta = FX_META[t.code] || { name: t.code, flag: '💵' };
+    const rateStr = t.buyRate != null
+      ? (t.code === 'JPY' ? (t.buyRate * 100).toFixed(3) + ' /100' : t.buyRate.toFixed(4))
+      : '—';
+    const costStr = t.twdCost ? fmt(t.twdCost) : '—';
+    return `<div class="fx-tx-row">
+      <span style="color:var(--text2)">${t.date}</span>
+      <span>${meta.flag} ${t.code}</span>
+      <span style="text-align:right;font-weight:600">${fmtFxAmt(t.code, t.amount)}</span>
+      <span style="text-align:right;color:var(--text2)">${rateStr}</span>
+      <span style="text-align:right">${costStr}</span>
+      <div style="text-align:right"><button class="icon-btn" onclick="deleteFxTx('${t.id}')">🗑️</button></div>
+    </div>`;
+  }).join('') || '<div style="color:var(--text3);font-size:13px;padding:12px 4px">尚無買入記錄</div>';
 }
 
-function fmtFxAmount(code, amount) {
-  if (code === 'JPY' || code === 'CNY') return amount.toLocaleString() + ' ' + code;
-  return amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' ' + code;
+function fmtFxAmt(code, amount) {
+  const decimals = (code === 'JPY' || code === 'CNY') ? 0 : 2;
+  return amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: decimals }) + ' ' + code;
 }
 
 async function refreshFxRates() {
@@ -2007,64 +2054,79 @@ async function refreshFxRates() {
     const res  = await fetch('https://open.er-api.com/v6/latest/TWD');
     const data = await res.json();
     if (data.result !== 'success') throw new Error('API 回傳失敗');
-    const r = data.rates;
     Object.keys(FX_META).forEach(code => {
-      if (r[code]) fxRates[code] = 1 / r[code];
+      if (data.rates[code]) fxRates[code] = 1 / data.rates[code];
     });
     const now = new Date();
     fxUpdated = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     saveFx();
     renderFx();
-    if (btn) btn.textContent = '🔄 更新匯率';
   } catch(e) {
-    if (btn) btn.textContent = '🔄 更新匯率';
     alert('匯率更新失敗，請稍後再試');
     console.warn('[FX]', e.message);
+  } finally {
+    if (btn) btn.textContent = '🔄 更新匯率';
   }
 }
 
-function openFxModal(editId) {
-  _fxEditId = editId || null;
-  const title = document.getElementById('fx-modal-title');
-  const codeEl = document.getElementById('fx-code');
-  const amtEl  = document.getElementById('fx-amount');
-  if (_fxEditId) {
-    const h = fxHoldings.find(x => x.id === _fxEditId);
-    if (!h) return;
-    title.textContent = '編輯外幣';
-    codeEl.value = h.code;
-    codeEl.disabled = true;
-    amtEl.value  = h.amount;
-  } else {
-    title.textContent = '新增外幣';
-    codeEl.disabled = false;
-    codeEl.value = 'USD';
-    amtEl.value  = '';
-  }
+function openFxModal() {
+  document.getElementById('fx-modal-title').textContent = '新增外幣';
+  document.getElementById('fx-code').value    = 'JPY';
+  document.getElementById('fx-amount').value  = '';
+  document.getElementById('fx-buy-rate').value = '';
+  document.getElementById('fx-date').value    = new Date().toISOString().slice(0, 10);
   document.getElementById('fx-overlay').classList.remove('hidden');
-  amtEl.focus();
+  document.getElementById('fx-amount').focus();
 }
 
 function closeFxModal() {
   document.getElementById('fx-overlay').classList.add('hidden');
-  document.getElementById('fx-code').disabled = false;
-  _fxEditId = null;
 }
 
 function confirmFxModal() {
-  const code   = document.getElementById('fx-code').value;
-  const amount = parseFloat(document.getElementById('fx-amount').value);
+  const code    = document.getElementById('fx-code').value;
+  const amount  = parseFloat(document.getElementById('fx-amount').value);
+  const buyRate = parseFloat(document.getElementById('fx-buy-rate').value) || null;
+  const date    = document.getElementById('fx-date').value;
   if (!amount || amount <= 0) { alert('請輸入有效金額'); return; }
-  if (_fxEditId) {
-    const h = fxHoldings.find(x => x.id === _fxEditId);
-    if (h) h.amount = amount;
+  if (!date) { alert('請選擇日期'); return; }
+
+  // 新增買入記錄
+  const twdCost = (buyRate && amount) ? Math.round(amount * buyRate) : null;
+  fxTxs.push({ id: uid(), date, code, amount, buyRate, twdCost });
+
+  // 更新持倉：加總金額，重算加權均價
+  const existing = fxHoldings.find(h => h.code === code);
+  if (existing) {
+    if (buyRate != null && existing.avgBuyRate != null) {
+      // 加權平均買入匯率
+      existing.avgBuyRate = (existing.avgBuyRate * existing.amount + buyRate * amount) / (existing.amount + amount);
+    } else if (buyRate != null && existing.avgBuyRate == null) {
+      // 舊持倉無成本，以此筆為基準（只算這筆的部分）
+      existing.avgBuyRate = buyRate * amount / (existing.amount + amount);
+    }
+    existing.amount += amount;
   } else {
-    const exists = fxHoldings.find(x => x.code === code);
-    if (exists) { exists.amount += amount; }
-    else { fxHoldings.push({ id: uid(), code, amount }); }
+    fxHoldings.push({ id: uid(), code, amount, avgBuyRate: buyRate });
   }
+
   saveFx();
   closeFxModal();
+  renderFx();
+}
+
+function deleteFxTx(id) {
+  const tx = fxTxs.find(t => t.id === id);
+  if (!tx) return;
+  if (!confirm(`確定刪除這筆 ${tx.code} 買入記錄？`)) return;
+  fxTxs = fxTxs.filter(t => t.id !== id);
+  // 從持倉扣回金額（均價不反算，保留現有）
+  const h = fxHoldings.find(x => x.code === tx.code);
+  if (h) {
+    h.amount = Math.max(0, h.amount - tx.amount);
+    if (h.amount === 0) fxHoldings = fxHoldings.filter(x => x.code !== tx.code);
+  }
+  saveFx();
   renderFx();
 }
 
@@ -2072,7 +2134,7 @@ function deleteFxHolding(id) {
   const h = fxHoldings.find(x => x.id === id);
   if (!h) return;
   const meta = FX_META[h.code] || { name: h.code };
-  if (!confirm(`確定刪除 ${meta.name}（${h.code}）的持倉紀錄？`)) return;
+  if (!confirm(`確定刪除 ${meta.name}（${h.code}）的持倉？買入記錄將保留。`)) return;
   fxHoldings = fxHoldings.filter(x => x.id !== id);
   saveFx();
   renderFx();

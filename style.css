@@ -674,8 +674,8 @@ body {
 }
 .fx-tbl-head, .fx-row {
   display: grid;
-  grid-template-columns: 2fr 1.2fr 1.2fr 1.2fr 60px;
-  gap: 8px;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr 1fr 56px;
+  gap: 6px;
   align-items: center;
   padding: 9px 4px;
   border-bottom: 0.5px solid var(--border);
@@ -688,6 +688,22 @@ body {
   padding-bottom: 6px;
 }
 .fx-row:last-child { border-bottom: none; }
+.fx-tx-head, .fx-tx-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr 1.2fr 1.2fr 44px;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 4px;
+  border-bottom: 0.5px solid var(--border);
+  font-size: 13px;
+}
+.fx-tx-head {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text3);
+  padding-bottom: 6px;
+}
+.fx-tx-row:last-child { border-bottom: none; }
 .fx-row .fx-flag { font-size: 18px; margin-right: 6px; }
 .fx-row .fx-code { font-weight: 700; font-size: 14px; }
 .fx-row .fx-name { font-size: 11px; color: var(--text3); }

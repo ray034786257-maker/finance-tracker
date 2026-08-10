@@ -439,23 +439,32 @@
       <!-- 摘要卡片 -->
       <div class="fx-summary-grid" style="margin-bottom:16px">
         <div class="stat-card"><div class="stat-label">台幣總換算</div><div class="stat-value" id="fx-total-twd">—</div></div>
-        <div class="stat-card"><div class="stat-label">幣別數量</div><div class="stat-value" id="fx-count">—</div></div>
+        <div class="stat-card"><div class="stat-label">未實現匯差</div><div class="stat-value" id="fx-total-pnl">—</div></div>
       </div>
 
       <!-- 持倉表格 -->
       <div class="panel" style="margin-bottom:16px;padding:18px">
         <div class="chart-card-title" style="margin-bottom:12px">持倉明細</div>
         <div class="fx-tbl-head">
-          <span>幣別</span><span style="text-align:right">持有量</span><span style="text-align:right">現在匯率</span><span style="text-align:right">台幣換算</span><span></span>
+          <span>幣別</span><span style="text-align:right">持有量</span><span style="text-align:right">均買匯率</span><span style="text-align:right">現在匯率</span><span style="text-align:right">台幣換算</span><span style="text-align:right">匯差損益</span><span></span>
         </div>
         <div id="fx-rows"></div>
       </div>
 
+      <!-- 交易記錄 -->
+      <div class="panel" style="margin-bottom:16px;padding:18px">
+        <div class="chart-card-title" style="margin-bottom:12px">買入記錄</div>
+        <div class="fx-tx-head">
+          <span>日期</span><span>幣別</span><span style="text-align:right">金額</span><span style="text-align:right">買入匯率</span><span style="text-align:right">台幣成本</span><span></span>
+        </div>
+        <div id="fx-tx-rows"></div>
+      </div>
+
     </div><!-- /page-fx -->
 
-    <!-- 外幣新增/編輯 Modal -->
+    <!-- 外幣新增 Modal -->
     <div id="fx-overlay" class="modal-overlay hidden">
-      <div class="modal-box" style="max-width:340px">
+      <div class="modal-box" style="max-width:360px">
         <h3 id="fx-modal-title" class="modal-title">新增外幣</h3>
         <div class="form-group">
           <label class="form-label">幣別</label>
@@ -471,8 +480,16 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">持有金額</label>
-          <input type="number" id="fx-amount" class="form-input" placeholder="例：1000" min="0" step="any">
+          <label class="form-label">買入金額（外幣）</label>
+          <input type="number" id="fx-amount" class="form-input" placeholder="例：30000" min="0" step="any">
+        </div>
+        <div class="form-group">
+          <label class="form-label">買入匯率（1 外幣 = ? 台幣）<span style="color:var(--text3);font-size:11px"> 選填</span></label>
+          <input type="number" id="fx-buy-rate" class="form-input" placeholder="例：0.199（不記得可留空）" min="0" step="any">
+        </div>
+        <div class="form-group">
+          <label class="form-label">日期</label>
+          <input type="date" id="fx-date" class="form-input">
         </div>
         <div class="modal-actions">
           <button class="btn-secondary" onclick="closeFxModal()">取消</button>
