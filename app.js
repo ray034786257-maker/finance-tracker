@@ -2291,8 +2291,17 @@ function confirmDripModal() {
   if (!shares || shares <= 0) { alert('請輸入買入股數'); return; }
   if (!price || price <= 0)   { alert('請輸入買入價格'); return; }
 
-  dripRecords.push({ id: uid(), date, sourceCode, divAmount, targetCode, shares, price, fee, note });
+  const dripId = uid();
+  dripRecords.push({ id: dripId, date, sourceCode, divAmount, targetCode, shares, price, fee, note });
   saveDrip();
+
+  // 同步寫入股票交易紀錄
+  const targetName = DRIP_STOCKS[targetCode] || targetCode;
+  const txNote = (note ? note + '｜' : '') + '♻️ DRIP';
+  stockTxs.push({ id: uid(), type: 'buy', code: targetCode, name: targetName, shares, price, fee, date, note: txNote });
+  persistStock();
+  renderInvest();
+
   closeDripModal();
   renderDrip();
 }
