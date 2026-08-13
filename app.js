@@ -1832,6 +1832,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   initUpcomingDivSchedule();
   initFx();
   initDripData();
+  migrateDripTxNotes();
   renderDrip();
   renderAll();
   // 雲端同步由 firebase-config.js 的 onAuthStateChanged 觸發
@@ -2172,6 +2173,27 @@ function initDripData() {
     saveDrip();
   }
   save('fin_drip_imported_v1', true);
+}
+
+function migrateDripTxNotes() {
+  if (load('fin_drip_tx_note_v1', false)) return;
+  const targets = [
+    { date: '2026-07-16', code: '0050', shares: 50,  price: 105.7 },
+    { date: '2026-08-12', code: '0050', shares: 64, price: 105.6 },
+  ];
+  let changed = false;
+  targets.forEach(t => {
+    const tx = stockTxs.find(x =>
+      x.date === t.date && x.code === t.code &&
+      x.shares === t.shares && x.price === t.price && x.type === 'buy'
+    );
+    if (tx && !tx.note?.includes('♻️ DRIP')) {
+      tx.note = (tx.note ? tx.note + '｜' : '') + '♻️ DRIP';
+      changed = true;
+    }
+  });
+  if (changed) persistStock();
+  save('fin_drip_tx_note_v1', true);
 }
 
 function renderDrip() {
