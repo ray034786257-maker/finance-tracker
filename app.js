@@ -2212,25 +2212,34 @@ function renderDrip() {
     byTarget[r.targetCode].cost   += cost;
   });
 
-  // 估算市值與年配息（用 prices.js 資料）
+  // 估算市值與年配息（用 prices.js 資料）；計算持倉總股數（買入合計）
   let estCurrentValue = 0, estAnnual = 0, hasPrice = false;
   const stockDivs = load('fin_stock_dividends_v3', {});
+  const totalSharesByCode = {};
+  (stockTxs || []).forEach(t => {
+    if (!totalSharesByCode[t.code]) totalSharesByCode[t.code] = 0;
+    totalSharesByCode[t.code] += t.type === 'buy' ? t.shares : -t.shares;
+  });
 
   if (sumEl) {
-    sumEl.innerHTML = `<div class="drip-sum-head"><span>股票</span><span style="text-align:right">累計再投入股數</span><span style="text-align:right">累計成本</span><span style="text-align:right">估算現值</span><span style="text-align:right">估算年配息</span></div>` +
+    sumEl.innerHTML = `<div class="drip-sum-head"><span>股票</span><span style="text-align:right">DRIP 股數</span><span style="text-align:right">累計成本</span><span style="text-align:right">估算現值</span><span style="text-align:right">估算年配息</span><span style="text-align:right">持倉佔比</span></div>` +
       Object.entries(byTarget).map(([code, d]) => {
-        const curPrice = (window.STOCK_PRICES || {})[code] || null;
-        const divInfo  = stockDivs[code] || null;
-        const curVal   = curPrice ? Math.round(d.shares * curPrice) : null;
-        const annDiv   = divInfo ? Math.round(d.shares * divInfo.lastDiv * divInfo.timesPerYear) : null;
+        const curPrice   = (window.STOCK_PRICES || {})[code] || null;
+        const divInfo    = stockDivs[code] || null;
+        const curVal     = curPrice ? Math.round(d.shares * curPrice) : null;
+        const annDiv     = divInfo ? Math.round(d.shares * divInfo.lastDiv * divInfo.timesPerYear) : null;
+        const totalShares = totalSharesByCode[code] || null;
+        const pct        = totalShares ? (d.shares / totalShares * 100).toFixed(1) + '%' : '—';
+        const pctColor   = totalShares ? (d.shares / totalShares >= 0.05 ? 'var(--income-fg)' : 'var(--text2)') : 'var(--text3)';
         if (curVal)  { estCurrentValue += curVal;  hasPrice = true; }
         if (annDiv)  { estAnnual += annDiv; }
         return `<div class="drip-sum-row">
           <span><strong>${code}</strong> <span style="font-size:11px;color:var(--text3)">${d.name}</span></span>
-          <span style="text-align:right;font-weight:600">${d.shares} 股</span>
+          <span style="text-align:right;font-weight:600">${d.shares} 股 <span style="font-size:11px;color:var(--text3)">/ ${totalShares ? totalShares + '股' : '?'}</span></span>
           <span style="text-align:right">$${fmt(d.cost)}</span>
           <span style="text-align:right;color:var(--income-fg)">${curVal ? '$' + fmt(curVal) : '—'}</span>
           <span style="text-align:right;color:#1565c0">${annDiv ? '$' + fmt(annDiv) : '—'}</span>
+          <span style="text-align:right;font-weight:700;color:${pctColor}">${pct}</span>
         </div>`;
       }).join('') || '<div style="color:var(--text3);font-size:13px;padding:8px 12px">尚無記錄</div>';
   }

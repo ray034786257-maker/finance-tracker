@@ -741,7 +741,7 @@ body {
 }
 .drip-sum-head, .drip-sum-row {
   display: grid;
-  grid-template-columns: 1.4fr 0.9fr 0.9fr 1fr 1fr;
+  grid-template-columns: 1.4fr 1.1fr 0.9fr 1fr 1fr 0.7fr;
   gap: 6px; align-items: center;
   padding: 9px 12px; border-bottom: 0.5px solid var(--border); font-size: 13px;
 }
