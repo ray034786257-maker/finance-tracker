@@ -1831,6 +1831,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   initUpcomingDivSchedule();
   initFx();
+  renderDrip();
   renderAll();
   // 雲端同步由 firebase-config.js 的 onAuthStateChanged 觸發
 });
@@ -2138,4 +2139,146 @@ function deleteFxHolding(id) {
   fxHoldings = fxHoldings.filter(x => x.id !== id);
   saveFx();
   renderFx();
+}
+
+// ══════════════════════════════════════════════
+// ── 股息再投入（DRIP）─────────────────────────
+// ══════════════════════════════════════════════
+// fin_drip: [{id, date, sourceCode, divAmount, targetCode, targetName, shares, price, fee, note}]
+
+const DRIP_STOCKS = {
+  '0050':   '元大台灣50',
+  '0056':   '元大高股息',
+  '006208': '富邦台50',
+  '00878':  '國泰永續高股息',
+  '00918':  '大華優利高填息30',
+  '009816': '凱基台灣TOP50',
+};
+
+let dripRecords = load('fin_drip', []);
+
+function saveDrip() { save('fin_drip', dripRecords); }
+
+function renderDrip() {
+  const rowsEl    = document.getElementById('drip-rows');
+  const sumEl     = document.getElementById('drip-summary-rows');
+  const totalEl   = document.getElementById('drip-total-cost');
+  const valueEl   = document.getElementById('drip-current-value');
+  const annualEl  = document.getElementById('drip-est-annual');
+  if (!rowsEl) return;
+
+  const sorted = [...dripRecords].sort((a, b) => b.date.localeCompare(a.date));
+
+  // ── 記錄表格
+  rowsEl.innerHTML = sorted.map(r => {
+    const totalCost = Math.round(r.shares * r.price + (r.fee || 0));
+    const srcName   = DRIP_STOCKS[r.sourceCode] || r.sourceCode;
+    const tgtName   = DRIP_STOCKS[r.targetCode] || r.targetCode;
+    return `<div class="drip-row">
+      <span style="color:var(--text2)">${r.date}</span>
+      <span><span class="drip-badge">${r.sourceCode}</span> <span style="font-size:11px;color:var(--text3)">${srcName}</span></span>
+      <span style="text-align:right">${r.divAmount ? '$' + fmt(r.divAmount) : '—'}</span>
+      <span><span class="drip-badge">${r.targetCode}</span> <span style="font-size:11px;color:var(--text3)">${tgtName}</span></span>
+      <span style="text-align:right;font-weight:600">${r.shares} 股</span>
+      <span style="text-align:right;color:var(--text2)">$${r.price}</span>
+      <span style="text-align:right;font-weight:700;color:var(--income-fg)">$${fmt(totalCost)}</span>
+      <div style="text-align:right"><button class="icon-btn" onclick="deleteDripRecord('${r.id}')">🗑️</button></div>
+    </div>`;
+  }).join('') || '<div style="color:var(--text3);font-size:13px;padding:12px 4px">尚無再投入記錄</div>';
+
+  // ── 各股累計統計
+  const byTarget = {};
+  let grandCost = 0;
+  dripRecords.forEach(r => {
+    const cost = Math.round(r.shares * r.price + (r.fee || 0));
+    grandCost += cost;
+    if (!byTarget[r.targetCode]) byTarget[r.targetCode] = { shares: 0, cost: 0, name: DRIP_STOCKS[r.targetCode] || r.targetCode };
+    byTarget[r.targetCode].shares += r.shares;
+    byTarget[r.targetCode].cost   += cost;
+  });
+
+  // 估算市值與年配息（用 prices.js 資料）
+  let estCurrentValue = 0, estAnnual = 0, hasPrice = false;
+  const stockDivs = load('fin_stock_dividends_v3', {});
+
+  if (sumEl) {
+    sumEl.innerHTML = `<div class="drip-sum-head"><span>股票</span><span style="text-align:right">累計再投入股數</span><span style="text-align:right">累計成本</span><span style="text-align:right">估算現值</span><span style="text-align:right">估算年配息</span></div>` +
+      Object.entries(byTarget).map(([code, d]) => {
+        const curPrice = (window.STOCK_PRICES || {})[code] || null;
+        const divInfo  = stockDivs[code] || null;
+        const curVal   = curPrice ? Math.round(d.shares * curPrice) : null;
+        const annDiv   = divInfo ? Math.round(d.shares * divInfo.lastDiv * divInfo.timesPerYear) : null;
+        if (curVal)  { estCurrentValue += curVal;  hasPrice = true; }
+        if (annDiv)  { estAnnual += annDiv; }
+        return `<div class="drip-sum-row">
+          <span><strong>${code}</strong> <span style="font-size:11px;color:var(--text3)">${d.name}</span></span>
+          <span style="text-align:right;font-weight:600">${d.shares} 股</span>
+          <span style="text-align:right">$${fmt(d.cost)}</span>
+          <span style="text-align:right;color:var(--income-fg)">${curVal ? '$' + fmt(curVal) : '—'}</span>
+          <span style="text-align:right;color:#1565c0">${annDiv ? '$' + fmt(annDiv) : '—'}</span>
+        </div>`;
+      }).join('') || '<div style="color:var(--text3);font-size:13px;padding:8px 12px">尚無記錄</div>';
+  }
+
+  if (totalEl) totalEl.textContent = grandCost ? '$' + fmt(grandCost) : '$0';
+  if (valueEl) valueEl.textContent = hasPrice ? '$' + fmt(estCurrentValue) : '—';
+  if (annualEl) annualEl.textContent = estAnnual ? '$' + fmt(estAnnual) : '—';
+}
+
+function openDripModal() {
+  document.getElementById('drip-date').value      = new Date().toISOString().slice(0, 10);
+  document.getElementById('drip-div-amount').value = '';
+  document.getElementById('drip-shares').value    = '';
+  document.getElementById('drip-price').value     = '';
+  document.getElementById('drip-fee').value       = '0';
+  document.getElementById('drip-note').value      = '';
+  document.getElementById('drip-cost-preview').textContent = '—';
+  document.getElementById('drip-overlay').classList.remove('hidden');
+  document.getElementById('drip-div-amount').focus();
+}
+
+function closeDripModal() {
+  document.getElementById('drip-overlay').classList.add('hidden');
+}
+
+function calcDripCost() {
+  const shares = parseFloat(document.getElementById('drip-shares').value) || 0;
+  const price  = parseFloat(document.getElementById('drip-price').value) || 0;
+  const fee    = parseFloat(document.getElementById('drip-fee').value) || 0;
+  const el     = document.getElementById('drip-cost-preview');
+  if (shares && price) {
+    el.textContent = '$' + fmt(Math.round(shares * price + fee));
+  } else {
+    el.textContent = '—';
+  }
+}
+
+function confirmDripModal() {
+  const date      = document.getElementById('drip-date').value;
+  const sourceCode = document.getElementById('drip-source').value;
+  const divAmount = parseFloat(document.getElementById('drip-div-amount').value) || null;
+  const targetCode = document.getElementById('drip-target').value;
+  const shares    = parseFloat(document.getElementById('drip-shares').value);
+  const price     = parseFloat(document.getElementById('drip-price').value);
+  const fee       = parseFloat(document.getElementById('drip-fee').value) || 0;
+  const note      = document.getElementById('drip-note').value.trim();
+
+  if (!date)   { alert('請選擇日期'); return; }
+  if (!shares || shares <= 0) { alert('請輸入買入股數'); return; }
+  if (!price || price <= 0)   { alert('請輸入買入價格'); return; }
+
+  dripRecords.push({ id: uid(), date, sourceCode, divAmount, targetCode, shares, price, fee, note });
+  saveDrip();
+  closeDripModal();
+  renderDrip();
+}
+
+function deleteDripRecord(id) {
+  const r = dripRecords.find(x => x.id === id);
+  if (!r) return;
+  const name = DRIP_STOCKS[r.targetCode] || r.targetCode;
+  if (!confirm(`確定刪除這筆 ${name} 再投入記錄？`)) return;
+  dripRecords = dripRecords.filter(x => x.id !== id);
+  saveDrip();
+  renderDrip();
 }

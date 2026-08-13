@@ -192,6 +192,7 @@
           <button class="invest-tab active" data-itab="holding">📊 持倉總覽</button>
           <button class="invest-tab" data-itab="dividend">💰 配息管理</button>
           <button class="invest-tab" data-itab="history">📋 交易紀錄</button>
+          <button class="invest-tab" data-itab="drip">♻️ 股息再投入</button>
         </div>
 
         <!-- ── Tab 1：持倉總覽 ── -->
@@ -293,8 +294,115 @@
           </div>
         </div>
 
+        <!-- ── Tab 4：股息再投入 ── -->
+        <div class="invest-pane" data-ipane="drip" style="display:none">
+          <!-- 摘要卡片 -->
+          <div class="stats-row" style="margin-bottom:20px">
+            <div class="stat-callout income">
+              <div class="stat-emoji">♻️</div>
+              <div class="stat-body"><div class="stat-label">累計再投入金額</div><div class="stat-value" id="drip-total-cost">$0</div></div>
+            </div>
+            <div class="stat-callout balance">
+              <div class="stat-emoji">📈</div>
+              <div class="stat-body"><div class="stat-label">額外增加市值</div><div class="stat-value" id="drip-current-value">—</div></div>
+            </div>
+            <div class="stat-callout total">
+              <div class="stat-emoji">💸</div>
+              <div class="stat-body"><div class="stat-label">估算額外年配息</div><div class="stat-value" id="drip-est-annual">—</div></div>
+            </div>
+          </div>
+
+          <!-- 再投入記錄表 -->
+          <div class="panel" style="padding:18px;margin-bottom:16px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+              <div class="chart-card-title" style="margin:0">📋 再投入記錄</div>
+              <button class="btn-primary" onclick="openDripModal()" style="font-size:13px;padding:6px 14px">+ 新增記錄</button>
+            </div>
+            <div class="drip-head">
+              <span>日期</span><span>配息來源</span><span>配息金額</span>
+              <span>再投入股票</span><span>股數</span><span>買入價</span><span>總成本</span><span></span>
+            </div>
+            <div id="drip-rows"></div>
+          </div>
+
+          <!-- 各股累計再投入明細 -->
+          <div class="panel" style="padding:18px">
+            <div class="chart-card-title">📊 各股累計再投入</div>
+            <div id="drip-summary-rows"></div>
+          </div>
+        </div>
+
       </section>
     </div><!-- /page-invest -->
+
+    <!-- ── DRIP Modal ── -->
+    <div id="drip-overlay" class="modal-overlay hidden" onclick="if(event.target===this)closeDripModal()">
+      <div class="modal-box" style="max-width:420px">
+        <div class="modal-header">
+          <span class="modal-title">新增股息再投入記錄</span>
+          <button class="modal-close" onclick="closeDripModal()">✕</button>
+        </div>
+        <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+          <div>
+            <label class="form-label">日期</label>
+            <input type="date" id="drip-date" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">配息來源（哪支股票配的息）</label>
+            <select id="drip-source" class="form-input">
+              <option value="0050">0050 元大台灣50</option>
+              <option value="0056">0056 元大高股息</option>
+              <option value="006208">006208 富邦台50</option>
+              <option value="00878">00878 國泰永續高股息</option>
+              <option value="00918">00918 大華優利高填息30</option>
+              <option value="009816">009816 凱基台灣TOP50</option>
+              <option value="other">其他</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">收到的配息金額（元）</label>
+            <input type="number" id="drip-div-amount" class="form-input" placeholder="例：1350" min="0" step="any">
+          </div>
+          <div>
+            <label class="form-label">再投入購買的股票</label>
+            <select id="drip-target" class="form-input">
+              <option value="0050">0050 元大台灣50</option>
+              <option value="0056">0056 元大高股息</option>
+              <option value="006208">006208 富邦台50</option>
+              <option value="00878">00878 國泰永續高股息</option>
+              <option value="00918">00918 大華優利高填息30</option>
+              <option value="009816">009816 凱基台灣TOP50</option>
+              <option value="other">其他</option>
+            </select>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <label class="form-label">買入股數</label>
+              <input type="number" id="drip-shares" class="form-input" placeholder="例：10" min="0" step="any" oninput="calcDripCost()">
+            </div>
+            <div>
+              <label class="form-label">買入價格（元/股）</label>
+              <input type="number" id="drip-price" class="form-input" placeholder="例：102.5" min="0" step="any" oninput="calcDripCost()">
+            </div>
+          </div>
+          <div>
+            <label class="form-label">手續費（元，可留 0）</label>
+            <input type="number" id="drip-fee" class="form-input" placeholder="0" min="0" value="0" oninput="calcDripCost()">
+          </div>
+          <div style="background:var(--bg2);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--text2)">
+            預估總成本：<strong id="drip-cost-preview" style="color:var(--text1);font-size:15px">—</strong>
+          </div>
+          <div>
+            <label class="form-label">備註（選填）</label>
+            <input type="text" id="drip-note" class="form-input" placeholder="例：2026Q2 配息再投入">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-ghost" onclick="closeDripModal()">取消</button>
+          <button class="btn-primary" onclick="confirmDripModal()">確認新增</button>
+        </div>
+      </div>
+    </div>
 
     <!-- ══ 頁面：分析 ══ -->
     <div id="page-analysis" class="page hidden">

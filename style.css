@@ -719,6 +719,46 @@ body {
   .fx-row-actions { justify-content: flex-start; }
 }
 
+/* ── 股息再投入 ── */
+.drip-head, .drip-row {
+  display: grid;
+  grid-template-columns: 88px 1fr 1fr 1fr 0.7fr 0.8fr 0.9fr 44px;
+  gap: 6px;
+  align-items: center;
+  padding: 9px 12px;
+  border-bottom: 0.5px solid var(--border);
+  font-size: 13px;
+}
+.drip-head {
+  font-size: 11px; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .4px; padding-bottom: 6px;
+}
+.drip-row:last-child { border-bottom: none; }
+.drip-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 7px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  background: #e8f5e9; color: #2e7d32;
+}
+.drip-sum-head, .drip-sum-row {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr 0.9fr 1fr 1fr;
+  gap: 6px; align-items: center;
+  padding: 9px 12px; border-bottom: 0.5px solid var(--border); font-size: 13px;
+}
+.drip-sum-head { font-size: 11px; font-weight: 700; color: var(--text3); padding-bottom: 6px; }
+.drip-sum-row:last-child { border-bottom: none; }
+@media (max-width: 600px) {
+  .drip-head { display: none; }
+  .drip-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 4px; padding: 12px 8px;
+  }
+  .drip-row > span:nth-child(7) { font-weight: 700; }
+  .drip-sum-head { display: none; }
+  .drip-sum-row { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; gap: 4px; }
+}
+
 /* ── 配息待記錄提醒列 ── */
 .div-remind-bar {
   display: flex;
