@@ -582,9 +582,10 @@ body {
   padding: 2px 8px; border-radius: 99px;
   font-size: 11px; font-weight: 600;
 }
-.inv-type-buy  { background: #dcfce7; color: #15803d; }
-.inv-type-sell { background: #fee2e2; color: #b91c1c; }
-.inv-type-div  { background: #fef9c3; color: #a16207; }
+.inv-type-buy      { background: #dcfce7; color: #15803d; }
+.inv-type-sell     { background: #fee2e2; color: #b91c1c; }
+.inv-type-div      { background: #fef9c3; color: #a16207; }
+.inv-type-reinvest { background: #e0f2fe; color: #0369a1; }
 
 .inv-stat-row {
   display: flex; justify-content: space-between; align-items: center;

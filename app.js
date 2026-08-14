@@ -379,7 +379,7 @@ function calcHoldings() {
   const h = {};
   stockTxs.forEach(t => {
     if (!h[t.code]) h[t.code] = { name: t.name, shares: 0, totalCost: 0 };
-    if (t.type === 'buy') {
+    if (t.type === 'buy' || t.type === 'reinvest') {
       h[t.code].shares    += t.shares;
       h[t.code].totalCost += t.shares * t.price + (t.fee || 0);
     } else if (t.type === 'sell') {
@@ -400,7 +400,7 @@ function calcRealizedPnl() {
   stockTxs.forEach(t => {
     if (!avgCostTrack[t.code]) avgCostTrack[t.code] = { shares: 0, totalCost: 0 };
     const ac = avgCostTrack[t.code];
-    if (t.type === 'buy') {
+    if (t.type === 'buy' || t.type === 'reinvest') {
       ac.totalCost += t.shares * t.price + (t.fee || 0);
       ac.shares    += t.shares;
     } else if (t.type === 'sell') {
@@ -1093,12 +1093,12 @@ function renderInvest() {
   txEl.innerHTML = [...stockTxs].sort((a,b) => b.date.localeCompare(a.date)).map(t =>
     `<div class="inv-tx-row">
       <span style="color:var(--text2);font-size:12px">${t.date}</span>
-      <span><span class="inv-type-badge inv-type-${t.type}">${t.type==='buy'?'買入':'賣出'}</span></span>
+      <span><span class="inv-type-badge inv-type-${t.type}">${t.type==='buy'?'買入':t.type==='sell'?'賣出':'再投入'}</span></span>
       <span><span class="stock-name">${esc(t.name)}</span> <span class="stock-code">${esc(t.code)}</span></span>
       <span>${fmtN(t.shares)}</span>
       <span>$${fmtN(t.price)}</span>
       <span>${t.fee ? '$'+fmtN(t.fee) : '—'}</span>
-      <span style="font-weight:600">${fmt(Math.round(t.shares*t.price + (t.type==='buy'?1:-1)*(t.fee||0)))}</span>
+      <span style="font-weight:600">${fmt(Math.round(t.shares*t.price + (t.type==='sell'?-1:1)*(t.fee||0)))}</span>
       <span><button class="icon-btn" onclick="deleteStockTx('${t.id}')">🗑️</button></span>
     </div>`
   ).join('') || '<div class="empty-state">尚無交易記錄</div>';
@@ -2176,24 +2176,27 @@ function initDripData() {
 }
 
 function migrateDripTxNotes() {
-  if (load('fin_drip_tx_note_v1', false)) return;
+  if (load('fin_drip_tx_note_v2', false)) return;
   const targets = [
-    { date: '2026-07-16', code: '0050', shares: 50,  price: 105.7 },
+    { date: '2026-07-16', code: '0050', shares: 50, price: 105.7 },
     { date: '2026-08-12', code: '0050', shares: 64, price: 105.6 },
   ];
   let changed = false;
   targets.forEach(t => {
     const tx = stockTxs.find(x =>
       x.date === t.date && x.code === t.code &&
-      x.shares === t.shares && x.price === t.price && x.type === 'buy'
+      x.shares === t.shares && x.price === t.price
     );
-    if (tx && !tx.note?.includes('♻️ DRIP')) {
-      tx.note = (tx.note ? tx.note + '｜' : '') + '♻️ DRIP';
+    if (tx) {
+      if (!tx.note?.includes('♻️ DRIP')) {
+        tx.note = (tx.note ? tx.note + '｜' : '') + '♻️ DRIP';
+      }
+      tx.type = 'reinvest';
       changed = true;
     }
   });
   if (changed) persistStock();
-  save('fin_drip_tx_note_v1', true);
+  save('fin_drip_tx_note_v2', true);
 }
 
 function renderDrip() {
@@ -2240,7 +2243,7 @@ function renderDrip() {
   const totalSharesByCode = {};
   (stockTxs || []).forEach(t => {
     if (!totalSharesByCode[t.code]) totalSharesByCode[t.code] = 0;
-    totalSharesByCode[t.code] += t.type === 'buy' ? t.shares : -t.shares;
+    totalSharesByCode[t.code] += (t.type === 'buy' || t.type === 'reinvest') ? t.shares : -t.shares;
   });
 
   if (sumEl) {
@@ -2320,7 +2323,7 @@ function confirmDripModal() {
   // 同步寫入股票交易紀錄
   const targetName = DRIP_STOCKS[targetCode] || targetCode;
   const txNote = (note ? note + '｜' : '') + '♻️ DRIP';
-  stockTxs.push({ id: uid(), type: 'buy', code: targetCode, name: targetName, shares, price, fee, date, note: txNote });
+  stockTxs.push({ id: uid(), type: 'reinvest', code: targetCode, name: targetName, shares, price, fee, date, note: txNote });
   persistStock();
   renderInvest();
 
