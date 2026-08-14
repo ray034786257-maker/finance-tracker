@@ -2176,16 +2176,18 @@ function initDripData() {
 }
 
 function migrateDripTxNotes() {
-  if (load('fin_drip_tx_note_v2', false)) return;
+  if (load('fin_drip_tx_note_v3', false)) return;
+  // 比對條件：日期 + 股票代號（放寬，避免數值格式差異導致找不到）
   const targets = [
-    { date: '2026-07-16', code: '0050', shares: 50, price: 105.7 },
-    { date: '2026-08-12', code: '0050', shares: 64, price: 105.6 },
+    { date: '2026-07-16', code: '0050' },
+    { date: '2026-08-12', code: '0050' },
   ];
   let changed = false;
   targets.forEach(t => {
+    // 找同日期同股票的 buy 或 reinvest 交易（可能不只一筆，取第一筆）
     const tx = stockTxs.find(x =>
       x.date === t.date && x.code === t.code &&
-      x.shares === t.shares && x.price === t.price
+      (x.type === 'buy' || x.type === 'reinvest')
     );
     if (tx) {
       if (!tx.note?.includes('♻️ DRIP')) {
@@ -2196,7 +2198,7 @@ function migrateDripTxNotes() {
     }
   });
   if (changed) persistStock();
-  save('fin_drip_tx_note_v2', true);
+  save('fin_drip_tx_note_v3', true);
 }
 
 function renderDrip() {
