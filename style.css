@@ -586,6 +586,13 @@ body {
 .inv-type-sell     { background: #fee2e2; color: #b91c1c; }
 .inv-type-div      { background: #fef9c3; color: #a16207; }
 .inv-type-reinvest { background: #e0f2fe; color: #0369a1; }
+.non-div-badge {
+  display: inline-flex; align-items: center;
+  padding: 1px 6px; border-radius: 99px;
+  font-size: 10px; font-weight: 600;
+  background: #f1f5f9; color: #64748b;
+  border: 1px solid #cbd5e1;
+}
 
 .inv-stat-row {
   display: flex; justify-content: space-between; align-items: center;

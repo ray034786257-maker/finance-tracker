@@ -1044,6 +1044,9 @@ function renderInvest() {
   document.getElementById('prices-update-note').textContent =
     window.PRICES_UPDATED && window.PRICES_UPDATED !== '尚未更新' ? '✅ 今日已更新' : '';
 
+  // 不配息股票清單（累積型 ETF）
+  const NON_DIV_STOCKS = new Set(['009816']);
+
   // 配息資訊表
   const divInfoEl = document.getElementById('dividend-info-rows');
   const divData   = stockDividends || window.STOCK_DIVIDENDS || {};
@@ -1068,11 +1071,23 @@ function renderInvest() {
   divInfoEl.innerHTML = holdEntries.map(([code, h]) => {
     const cur    = parseFloat(stockPrices[code] || 0);
     const info   = divData[code] || {};
+    const isNonDiv = NON_DIV_STOCKS.has(code);
     const yield_ = calcYield(code, cur);
     const lastD  = info.lastDiv || 0;
     const freq   = info.frequency || '—';
     const annual = calcAnnual(code, cur, h.shares);
     const pct    = totalAnnualDiv > 0 ? Math.round(annual/totalAnnualDiv*100) : 0;
+    if (isNonDiv) {
+      return `<div class="holding-row" style="grid-template-columns:1.6fr 0.8fr 0.9fr 1fr 1fr 1fr 0.8fr;opacity:0.75">
+        <div><div class="stock-name">${esc(h.name)}</div><div class="stock-code">${esc(code)} <span class="non-div-badge">累積型</span></div></div>
+        <div>${cur ? '$'+fmtN(cur) : '—'}</div>
+        <div><span class="non-div-badge">不配息</span></div>
+        <div style="color:var(--text3)">—</div>
+        <div style="color:var(--text3)">—</div>
+        <div style="color:var(--text3)">—</div>
+        <div style="color:var(--text3)">—</div>
+      </div>`;
+    }
     return `<div class="holding-row" style="grid-template-columns:1.6fr 0.8fr 0.9fr 1fr 1fr 1fr 0.8fr">
       <div><div class="stock-name">${esc(h.name)}</div><div class="stock-code">${esc(code)}</div></div>
       <div>${cur ? '$'+fmtN(cur) : '—'}</div>
