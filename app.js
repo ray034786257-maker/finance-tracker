@@ -1327,10 +1327,43 @@ async function refreshPrices() {
     console.warn('[refreshPrices] 證交所即時 API 失敗:', e.message);
   }
 
-  // ── 方法二：Yahoo Finance + CORS Proxy（補足缺失的股價，並同步抓配息）──
+  // ── 方法一.五：TWSE 每日收盤資料（收盤後 / 非交易時段用）──
   const missing = codes.filter(c => !newPrices[c]);
+  if (missing.length > 0) {
+    // 找最近的交易日（週六→週五，週日→週五）
+    const d = new Date();
+    const dow = d.getDay();
+    if (dow === 0) d.setDate(d.getDate() - 2);
+    if (dow === 6) d.setDate(d.getDate() - 1);
+    const dateStr = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+
+    const twseDaily = await Promise.allSettled(missing.map(async code => {
+      const url = `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${dateStr}&stockNo=${code}`;
+      const res  = await fetch(url);
+      const data = await res.json();
+      if (data.stat !== 'OK' || !data.data?.length) return null;
+      const rows = data.data;
+      const last = rows[rows.length - 1];
+      const prev = rows.length > 1 ? rows[rows.length - 2] : null;
+      // 欄位順序：日期/股數/金額/開盤/最高/最低/收盤/漲跌/筆數
+      const close    = parseFloat(String(last[6]).replace(/,/g, ''));
+      const prevClose = prev ? parseFloat(String(prev[6]).replace(/,/g, '')) : null;
+      if (!close || close <= 0) return null;
+      return { code, close, prevClose };
+    }));
+
+    twseDaily.forEach(r => {
+      if (r.status === 'fulfilled' && r.value) {
+        newPrices[r.value.code] = r.value.close;
+        if (r.value.prevClose > 0) newPrevPrices[r.value.code] = r.value.prevClose;
+      }
+    });
+  }
+
+  // ── 方法二：Yahoo Finance + CORS Proxy（補足缺失的股價，並同步抓配息）──
+  const missingAfterTwse = codes.filter(c => !newPrices[c]);
   const yResults = await Promise.allSettled(codes.map(async code => {
-    const needPrice = missing.includes(code);
+    const needPrice = missingAfterTwse.includes(code);
     const yUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${code}.TW?interval=1d&range=2y&events=dividends`;
     const res  = await fetch(`https://corsproxy.io/?${encodeURIComponent(yUrl)}`);
     const data = await res.json();
@@ -1396,7 +1429,7 @@ async function refreshPrices() {
   fetchAndUpdateDividendSchedule();
 
   if (successCount === 0 && !divUpdated) {
-    alert('無法取得資料\n\n可能原因：\n• 非台股交易時間（09:00–13:30）\n• 網路或 CORS 問題\n\n請稍後再試');
+    alert('無法取得資料\n\n可能原因：\n• 網路或 CORS 問題\n• 假日且尚無收盤資料\n\n請稍後再試');
   }
 }
 
