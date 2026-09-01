@@ -759,7 +759,7 @@ const STOCK_DIV_PATTERNS = {
   '006208': { name: '富邦台50',           lastEx: '2026-07-16', lastPerShare: 4.75,  intervalDays: 182, payOffset: 23 },
   '00878':  { name: '國泰永續高股息',     lastEx: '2026-08-18', lastPerShare: 1.01,  intervalDays: 91,  payOffset: 24 },
   '009816': { name: '凱基台灣TOP50',      lastEx: null,         lastPerShare: null,  intervalDays: 91,  payOffset: 25 },
-  '00918':  { name: '大華優利高填息30',   lastEx: '2026-06-18', lastPerShare: 1.26,  intervalDays: 91,  payOffset: 25 },
+  '00918':  { name: '大華優利高填息30',   lastEx: '2026-09-18', lastPerShare: 1.75,  intervalDays: 91,  payOffset: 27 },
 };
 
 let upcomingDivSchedule = [];
@@ -775,6 +775,9 @@ function buildScheduleFromPatterns() {
   // 已公告的確認除息日（優先於預估，配息日過後自動消失）
   if (new Date('2026-07-13') >= today) {
     schedule.push({ code: '00918', name: '大華優利高填息30', exDate: '2026-06-18', payDate: '2026-07-13', perShare: 1.26, confirmed: true });
+  }
+  if (new Date('2026-10-15') >= today) {
+    schedule.push({ code: '00918', name: '大華優利高填息30', exDate: '2026-09-18', payDate: '2026-10-15', perShare: 1.75, confirmed: true });
   }
   if (new Date('2026-08-08') >= today) {
     schedule.push({ code: '006208', name: '富邦台50',     exDate: '2026-07-16', payDate: '2026-08-08', perShare: 4.75,  confirmed: true });
