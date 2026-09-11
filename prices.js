@@ -27,3 +27,12 @@ window.STOCK_DIVIDENDS = {
   "009816": { lastDiv: 0,     timesPerYear: 0,  frequency: '不配息（累積型）' } // 009816 為不配息累積型ETF
 };
 window.PRICES_UPDATED = "2026-09-01 14:30";
+
+// 即將除息提醒 — 由每月排程自動更新（確認資料優先於 app.js 中的預估值）
+// 格式：{ code, name, exDate, payDate, perShare, confirmed }
+window.UPCOMING_DIVIDENDS = [
+  // 2026-09-11 payDate (今天) 是最後一天
+  { code: '00878', name: '國泰永續高股息',   exDate: '2026-08-18', payDate: '2026-09-11', perShare: 1.01, confirmed: true  },
+  // 00918 Q3：2026/09/18 除息，2026/10/15 發放
+  { code: '00918', name: '大華優利高填息30', exDate: '2026-09-18', payDate: '2026-10-15', perShare: 1.75, confirmed: true  },
+];
