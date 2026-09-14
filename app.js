@@ -375,13 +375,16 @@ autoImportStocks();
 applyExternalPrices();
 
 // 計算持倉：回傳 { code: { name, shares, totalCost, avgCost } }
+// DRIP（股息再投入）的股數計入持倉，但不計入成本（視為免費股，均價因此攤薄）
 function calcHoldings() {
   const h = {};
   stockTxs.forEach(t => {
     if (!h[t.code]) h[t.code] = { name: t.name, shares: 0, totalCost: 0 };
-    if (t.type === 'buy' || t.type === 'reinvest') {
+    if (t.type === 'buy') {
       h[t.code].shares    += t.shares;
       h[t.code].totalCost += t.shares * t.price + (t.fee || 0);
+    } else if (t.type === 'reinvest') {
+      h[t.code].shares    += t.shares; // 股數增加，成本不增加（配息本為持倉的一部分）
     } else if (t.type === 'sell') {
       const avgC = h[t.code].shares > 0 ? h[t.code].totalCost / h[t.code].shares : 0;
       h[t.code].totalCost -= avgC * t.shares;
@@ -394,15 +397,18 @@ function calcHoldings() {
 }
 
 // 計算已實現損益
+// DRIP 股數計入持倉（攤薄均價），但不計入成本，與 calcHoldings 邏輯一致
 function calcRealizedPnl() {
   const avgCostTrack = {}; // 追蹤每支股票平均成本
   const realized = [];
   stockTxs.forEach(t => {
     if (!avgCostTrack[t.code]) avgCostTrack[t.code] = { shares: 0, totalCost: 0 };
     const ac = avgCostTrack[t.code];
-    if (t.type === 'buy' || t.type === 'reinvest') {
+    if (t.type === 'buy') {
       ac.totalCost += t.shares * t.price + (t.fee || 0);
       ac.shares    += t.shares;
+    } else if (t.type === 'reinvest') {
+      ac.shares    += t.shares; // 只加股數，不加成本
     } else if (t.type === 'sell') {
       const avgC = ac.shares > 0 ? ac.totalCost / ac.shares : 0;
       const pnl  = (t.price - avgC) * t.shares - (t.fee || 0);
