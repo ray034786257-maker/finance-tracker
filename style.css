@@ -300,6 +300,16 @@ body {
   transition: background .12s;
 }
 .btn-ghost:hover { background: var(--bg2); }
+.btn-icon-del {
+  flex-shrink: 0;
+  width: 20px; height: 20px; padding: 0;
+  background: none; border: none;
+  color: var(--text3); font-size: 14px; line-height: 1;
+  cursor: pointer; border-radius: 3px;
+  opacity: 0; transition: opacity .15s, color .15s;
+}
+.inv-stat-row:hover .btn-icon-del { opacity: 1; }
+.btn-icon-del:hover { color: #ef4444; }
 
 .btn-submit {
   width: 100%; padding: 10px;

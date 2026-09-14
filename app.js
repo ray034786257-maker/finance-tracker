@@ -912,6 +912,15 @@ function recordDividendFromSchedule(code, exDate) {
   renderInvest();
 }
 
+function deleteDividendRecord(id) {
+  const d = dividends.find(x => x.id === id);
+  if (!d) return;
+  if (!confirm(`確定刪除 ${d.date} ${d.name} +$${fmt(d.total)} 的配息記錄？`)) return;
+  dividends = dividends.filter(x => x.id !== id);
+  persistStock();
+  renderInvest();
+}
+
 // 按下「更新股價」時同步查詢 TWSE 當日除息事件，自動更新排程
 async function fetchAndUpdateDividendSchedule() {
   const today = new Date();
@@ -1037,11 +1046,12 @@ function renderInvest() {
 
   // 股息記錄
   const divEl = document.getElementById('dividend-list');
-  const sortedDiv = [...dividends].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 8);
+  const sortedDiv = [...dividends].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 20);
   divEl.innerHTML = sortedDiv.length ? sortedDiv.map(d =>
-    `<div class="inv-stat-row">
-      <span>${d.date} <span class="stock-code">${esc(d.code)}</span> ${esc(d.name)}</span>
+    `<div class="inv-stat-row" style="gap:6px">
+      <span style="flex:1">${d.date} <span class="stock-code">${esc(d.code)}</span> ${esc(d.name)}</span>
       <span class="inv-stat-val income">+${fmt(d.total)}</span>
+      <button class="btn-icon-del" onclick="deleteDividendRecord('${d.id}')" title="刪除此筆配息記錄">×</button>
     </div>`
   ).join('') : '<div style="color:var(--text3);font-size:13px;padding:8px 0">尚無股息記錄</div>';
 
