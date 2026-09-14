@@ -826,15 +826,21 @@ function renderUpcomingDividends() {
   const el = document.getElementById('upcoming-div-rows');
   if (!el) return;
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  // 已記錄的配息不再顯示在提醒清單
-  const upcoming = upcomingDivSchedule.filter(d => new Date(d.payDate) >= today && !d.recorded);
+  const holdings = calcHoldings();
+
+  // 已記錄 + 股數未變 → 隱藏；已記錄 + 股數有變 → 重新顯示（更新提醒）
+  const upcoming = upcomingDivSchedule.filter(d => {
+    if (new Date(d.payDate) < today) return false;
+    if (!d.recorded) return true;
+    const currentShares = holdings[d.code] ? holdings[d.code].shares : 0;
+    return d.recordedShares != null && currentShares !== d.recordedShares;
+  });
 
   if (!upcoming.length) {
     el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">近期無除息計畫</div>';
     return;
   }
 
-  const holdings = calcHoldings();
   el.innerHTML =
     `<div class="div-sched-head">
       <span>股票</span><span>除息日</span><span>距今</span><span>配息日</span><span>每股</span><span>預計收益</span><span></span>
@@ -845,18 +851,24 @@ function renderUpcomingDividends() {
       const daysLabel = daysToEx > 0 ? `${daysToEx} 天後` : daysToEx === 0 ? '今天！' : '已除息';
       const urgent = daysToEx >= 0 && daysToEx <= 5;
       const h = holdings[d.code];
-      const estIncome = h && d.perShare ? Math.round(d.perShare * h.shares) : null;
-      const badge = d.confirmed
-        ? ' <span class="div-confirmed-badge">✅ 已確認</span>'
-        : ' <span class="div-est-badge">📊 預估 ±7天</span>';
-      return `<div class="div-sched-row${urgent ? ' div-sched-urgent' : ''}">
-        <div><div class="stock-name">${esc(d.name)}${badge}</div><div class="stock-code">${esc(d.code)}</div></div>
+      const currentShares = h ? h.shares : 0;
+      const estIncome = h && d.perShare ? Math.round(d.perShare * currentShares) : null;
+      // 股數變動提醒
+      const sharesChanged = d.recorded && d.recordedShares != null && currentShares !== d.recordedShares;
+      const statusBadge = sharesChanged
+        ? ` <span class="div-shares-changed-badge">⚠️ 股數變動 ${d.recordedShares}→${currentShares}</span>`
+        : (d.confirmed
+            ? ' <span class="div-confirmed-badge">✅ 已確認</span>'
+            : ' <span class="div-est-badge">📊 預估 ±7天</span>');
+      const btnLabel = sharesChanged ? '🔄 更新記錄' : '＋ 記錄配息';
+      return `<div class="div-sched-row${urgent ? ' div-sched-urgent' : ''}${sharesChanged ? ' div-sched-warn' : ''}">
+        <div><div class="stock-name">${esc(d.name)}${statusBadge}</div><div class="stock-code">${esc(d.code)}</div></div>
         <div>${d.exDate}</div>
         <div class="${urgent ? 'pnl-pos' : ''}" style="font-weight:${urgent?700:400}">${daysLabel}</div>
         <div>${d.payDate}</div>
         <div>${d.perShare != null ? '$'+d.perShare : '—'}</div>
         <div class="pnl-pos">${estIncome !== null ? fmt(estIncome) : '—'}</div>
-        <div><button class="btn-ghost" style="font-size:11px;padding:4px 8px" onclick="recordDividendFromSchedule('${esc(d.code)}','${d.exDate}')">＋ 記錄配息</button></div>
+        <div><button class="btn-ghost${sharesChanged ? ' btn-warn' : ''}" style="font-size:11px;padding:4px 8px" onclick="recordDividendFromSchedule('${esc(d.code)}','${d.exDate}')">${btnLabel}</button></div>
       </div>`;
     }).join('');
 }
@@ -869,23 +881,30 @@ function recordDividendFromSchedule(code, exDate) {
   const h = calcHoldings()[code];
   if (!h || !h.shares) { alert('找不到持股資料'); return; }
 
-  // 防止重複記錄
-  const duplicate = dividends.some(d => d.code === code && d.date === entry.payDate);
-  if (duplicate) {
-    if (!confirm(`${entry.name} 在 ${entry.payDate} 的股息已記錄過，仍要再新增一筆嗎？`)) return;
+  const total = Math.round(entry.perShare * h.shares);
+  const isUpdate = !!entry.recorded; // 股數變動後點「更新記錄」
+
+  if (isUpdate) {
+    // 找到原本的記錄並更新股數與總額
+    const existingIdx = dividends.findIndex(d => d.code === code && d.date === entry.payDate);
+    if (existingIdx >= 0) {
+      dividends[existingIdx] = { ...dividends[existingIdx], shares: h.shares, total };
+    } else {
+      // 原記錄找不到（可能被手動刪除），重新新增
+      dividends.push({ id: uid(), code, name: entry.name, date: entry.payDate, perShare: entry.perShare, shares: h.shares, total, note: `除息日 ${entry.exDate}` });
+    }
+  } else {
+    // 首次記錄：防止重複
+    const duplicate = dividends.some(d => d.code === code && d.date === entry.payDate);
+    if (duplicate) {
+      if (!confirm(`${entry.name} 在 ${entry.payDate} 的股息已記錄過，仍要再新增一筆嗎？`)) return;
+    }
+    dividends.push({ id: uid(), code, name: entry.name, date: entry.payDate, perShare: entry.perShare, shares: h.shares, total, note: `除息日 ${entry.exDate}` });
   }
 
-  const total = Math.round(entry.perShare * h.shares);
-  dividends.push({
-    id: uid(), code, name: entry.name,
-    date: entry.payDate, perShare: entry.perShare,
-    shares: h.shares, total,
-    note: `除息日 ${entry.exDate}`
-  });
-
-  // 標記為已記錄
+  // 標記為已記錄，並儲存當時股數（用於偵測日後股數變動）
   upcomingDivSchedule = upcomingDivSchedule.map(e =>
-    (e.code === code && e.exDate === exDate) ? { ...e, recorded: true } : e
+    (e.code === code && e.exDate === exDate) ? { ...e, recorded: true, recordedShares: h.shares } : e
   );
 
   persistStock();
