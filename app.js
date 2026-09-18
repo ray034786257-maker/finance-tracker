@@ -396,6 +396,18 @@ function calcHoldings() {
   return h;
 }
 
+// 計算每支股票的歷史現金投入（只算 buy，不含 DRIP reinvest）
+// 分母永遠固定，不受賣出或 DRIP 影響，用於本金回收率計算
+function calcHistoricalInvested() {
+  const inv = {};
+  stockTxs.forEach(t => {
+    if (t.type === 'buy') {
+      inv[t.code] = (inv[t.code] || 0) + t.shares * t.price + (t.fee || 0);
+    }
+  });
+  return inv;
+}
+
 // 計算持倉（會計成本法）：reinvest 與 buy 同等對待（成本增加）
 // 用於 DRIP 效益分析，比較兩種算法的差異
 function calcHoldingsMethodA() {
@@ -2413,58 +2425,88 @@ function renderDrip() {
     }
   }
 
-  // ── 本金回收率
+  // ── 本金回收率（方案三：歷史現金投入為固定分母，三條回收線）
   const recoveryEl = document.getElementById('drip-recovery-rows');
   if (recoveryEl) {
-    const holdings = calcHoldings();
-    const divByCode = {};
-    dividends.forEach(d => { divByCode[d.code] = (divByCode[d.code] || 0) + d.total; });
+    const histInv    = calcHistoricalInvested(); // 歷史現金投入（永久固定）
+    const holdings   = calcHoldings();
+    const realized   = calcRealizedPnl();
     const divInfoAll = load('fin_stock_dividends_v3', {});
 
-    const rows = Object.entries(holdings)
-      .map(([code, h]) => {
-        const received     = divByCode[code] || 0;
-        const rate         = h.totalCost > 0 ? received / h.totalCost * 100 : 0;
-        const divInfo      = divInfoAll[code] || (window.STOCK_DIVIDENDS || {})[code] || null;
-        const annualDiv    = divInfo ? Math.round(h.shares * divInfo.lastDiv * divInfo.timesPerYear) : null;
-        const annualRate   = annualDiv && h.totalCost > 0 ? annualDiv / h.totalCost * 100 : null;
-        const yearsLeft    = annualRate && rate < 100 ? ((100 - rate) / annualRate) : null;
-        return { code, name: h.name, cost: h.totalCost, received, rate, annualDiv, annualRate, yearsLeft };
+    // 累計股息（按股票代號）
+    const divByCode = {};
+    dividends.forEach(d => { divByCode[d.code] = (divByCode[d.code] || 0) + d.total; });
+
+    // 已實現損益（按股票代號）
+    const gainByCode = {};
+    realized.forEach(r => { gainByCode[r.code] = (gainByCode[r.code] || 0) + r.pnl; });
+
+    // 合併所有有投入記錄的代號（含已清倉）
+    const allCodes = new Set([...Object.keys(histInv), ...Object.keys(holdings)]);
+
+    const rows = [...allCodes]
+      .filter(code => histInv[code] > 0)
+      .map(code => {
+        const invested   = histInv[code];
+        const divRec     = divByCode[code]  || 0;
+        const gainRec    = gainByCode[code] || 0;
+        const totalRec   = divRec + gainRec;
+        const divRate    = divRec  / invested * 100;
+        const gainRate   = gainRec / invested * 100;
+        const totalRate  = totalRec / invested * 100;
+        const h          = holdings[code];
+        const name       = h ? h.name : (stockTxs.find(t => t.code === code)?.name || code);
+        const divInfo    = divInfoAll[code] || (window.STOCK_DIVIDENDS || {})[code] || null;
+        const curShares  = h ? h.shares : 0;
+        const annualDiv  = divInfo && curShares ? Math.round(curShares * divInfo.lastDiv * divInfo.timesPerYear) : null;
+        const annualRate = annualDiv ? annualDiv / invested * 100 : null;
+        const yearsLeft  = annualRate && totalRate < 100 ? (100 - totalRate) / annualRate : null;
+        return { code, name, invested, divRec, gainRec, totalRec, divRate, gainRate, totalRate, annualRate, yearsLeft, cleared: !h };
       })
-      .sort((a, b) => b.rate - a.rate);
+      .sort((a, b) => b.totalRate - a.totalRate);
 
     if (!rows.length) {
-      recoveryEl.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">尚無持倉資料</div>';
+      recoveryEl.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">尚無買入記錄</div>';
     } else {
       recoveryEl.innerHTML =
         `<div class="drip-recovery-head">
           <span>股票</span>
-          <span style="text-align:right">投入成本</span>
-          <span style="text-align:right">累計股息</span>
-          <span>回收進度</span>
-          <span style="text-align:right">年回收速度</span>
-          <span style="text-align:right">預估回本</span>
+          <span style="text-align:right">歷史投入</span>
+          <span>回收進度 <span style="font-weight:400;font-size:10px">🔵股息 🟢資本利得</span></span>
+          <span style="text-align:right">股息回收</span>
+          <span style="text-align:right">資本利得</span>
+          <span style="text-align:right">總回收率</span>
         </div>` +
         rows.map(r => {
-          const pct     = Math.min(r.rate, 100);
-          const barColor = pct >= 50 ? '#10b981' : pct >= 20 ? '#3b82f6' : '#94a3b8';
+          const divPct  = Math.min(r.divRate,  100);
+          const gainPct = Math.min(r.gainRate, Math.max(0, 100 - divPct));
+          const totalPct = Math.min(r.totalRate, 100);
           const yearsStr = r.yearsLeft !== null
-            ? (r.yearsLeft < 1 ? '不到 1 年' : r.yearsLeft.toFixed(1) + ' 年')
-            : '—';
-          return `<div class="drip-recovery-row">
-            <span><strong>${r.code}</strong> <span style="font-size:11px;color:var(--text3)">${esc(r.name)}</span></span>
-            <span style="text-align:right;color:var(--text2)">$${fmt(Math.round(r.cost))}</span>
-            <span style="text-align:right;font-weight:600;color:var(--income-fg)">$${fmt(r.received)}</span>
+            ? (r.yearsLeft < 1 ? '< 1 年' : r.yearsLeft.toFixed(1) + ' 年')
+            : (r.totalRate >= 100 ? '✅ 已回本' : '—');
+          const totalColor = r.totalRate >= 100 ? '#10b981' : r.totalRate >= 30 ? '#3b82f6' : 'var(--text2)';
+          return `<div class="drip-recovery-row${r.cleared ? ' drip-recovery-cleared' : ''}">
+            <span>
+              <strong>${r.code}</strong>
+              <span style="font-size:11px;color:var(--text3)"> ${esc(r.name)}</span>
+              ${r.cleared ? '<span class="non-div-badge" style="font-size:10px;margin-left:4px">已清倉</span>' : ''}
+            </span>
+            <span style="text-align:right;color:var(--text2)">$${fmt(Math.round(r.invested))}</span>
             <span>
               <div style="display:flex;align-items:center;gap:6px">
-                <div style="flex:1;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden">
-                  <div style="height:100%;width:${pct.toFixed(1)}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
+                <div style="flex:1;height:8px;background:var(--bg2);border-radius:4px;overflow:hidden;display:flex">
+                  <div style="height:100%;width:${divPct.toFixed(1)}%;background:#3b82f6;transition:width .4s"></div>
+                  <div style="height:100%;width:${gainPct.toFixed(1)}%;background:#10b981;transition:width .4s"></div>
                 </div>
-                <span style="font-size:12px;font-weight:700;color:${barColor};min-width:38px">${r.rate.toFixed(1)}%</span>
+                <span style="font-size:12px;font-weight:700;color:${totalColor};min-width:42px">${r.totalRate.toFixed(1)}%</span>
+              </div>
+              <div style="font-size:10px;color:var(--text3);margin-top:2px">
+                ${r.annualRate ? '年回收速度 ' + r.annualRate.toFixed(1) + '%　預估回本 ' + yearsStr : yearsStr}
               </div>
             </span>
-            <span style="text-align:right;font-size:12px;color:var(--text2)">${r.annualRate ? r.annualRate.toFixed(1)+'%/年' : '—'}</span>
-            <span style="text-align:right;font-weight:600">${yearsStr}</span>
+            <span style="text-align:right;color:#3b82f6;font-weight:600">${r.divRate.toFixed(1)}%<br><span style="font-size:11px;font-weight:400;color:var(--text3)">$${fmt(r.divRec)}</span></span>
+            <span style="text-align:right;color:#10b981;font-weight:600">${r.gainRate > 0 ? r.gainRate.toFixed(1)+'%' : '—'}<br><span style="font-size:11px;font-weight:400;color:var(--text3)">${r.gainRec > 0 ? '$'+fmt(Math.round(r.gainRec)) : ''}</span></span>
+            <span style="text-align:right;font-weight:700;font-size:15px;color:${totalColor}">${r.totalRate.toFixed(1)}%</span>
           </div>`;
         }).join('');
     }
