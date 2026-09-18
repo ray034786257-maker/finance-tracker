@@ -396,6 +396,25 @@ function calcHoldings() {
   return h;
 }
 
+// 計算持倉（會計成本法）：reinvest 與 buy 同等對待（成本增加）
+// 用於 DRIP 效益分析，比較兩種算法的差異
+function calcHoldingsMethodA() {
+  const h = {};
+  stockTxs.forEach(t => {
+    if (!h[t.code]) h[t.code] = { name: t.name, shares: 0, totalCost: 0 };
+    if (t.type === 'buy' || t.type === 'reinvest') {
+      h[t.code].shares    += t.shares;
+      h[t.code].totalCost += t.shares * t.price + (t.fee || 0);
+    } else if (t.type === 'sell') {
+      const avgC = h[t.code].shares > 0 ? h[t.code].totalCost / h[t.code].shares : 0;
+      h[t.code].totalCost -= avgC * t.shares;
+      h[t.code].shares    -= t.shares;
+    }
+  });
+  Object.keys(h).forEach(k => { if (h[k].shares <= 0) delete h[k]; });
+  return h;
+}
+
 // 計算已實現損益
 // DRIP 股數計入持倉（攤薄均價），但不計入成本，與 calcHoldings 邏輯一致
 function calcRealizedPnl() {
@@ -2354,6 +2373,102 @@ function renderDrip() {
   if (totalEl) totalEl.textContent = grandCost ? '$' + fmt(grandCost) : '$0';
   if (valueEl) valueEl.textContent = hasPrice ? '$' + fmt(estCurrentValue) : '—';
   if (annualEl) annualEl.textContent = estAnnual ? '$' + fmt(estAnnual) : '—';
+
+  // ── DRIP 效益分析（現金投入法 vs 會計成本法）
+  const analysisEl = document.getElementById('drip-analysis-rows');
+  if (analysisEl) {
+    const reinvestCodes = new Set(stockTxs.filter(t => t.type === 'reinvest').map(t => t.code));
+    if (reinvestCodes.size === 0) {
+      analysisEl.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">尚無再投入記錄，無法比較</div>';
+    } else {
+      const hB = calcHoldings();        // 現金投入法（App 目前採用）
+      const hA = calcHoldingsMethodA(); // 會計成本法
+      analysisEl.innerHTML =
+        `<div class="drip-analysis-head">
+          <span>股票</span>
+          <span style="text-align:right">均價（現金）</span>
+          <span style="text-align:right">均價（會計）</span>
+          <span style="text-align:right">均價差</span>
+          <span style="text-align:right">報酬率（現金）</span>
+          <span style="text-align:right">報酬率（會計）</span>
+        </div>` +
+        [...reinvestCodes].filter(code => hB[code] && hA[code]).map(code => {
+          const b = hB[code], a = hA[code];
+          const avgB = b.totalCost / b.shares;
+          const avgA = a.totalCost / a.shares;
+          const diff = avgA - avgB;
+          const cur  = parseFloat(stockPrices[code] || 0);
+          const retB = cur && b.totalCost > 0 ? (cur * b.shares - b.totalCost) / b.totalCost * 100 : null;
+          const retA = cur && a.totalCost > 0 ? (cur * a.shares - a.totalCost) / a.totalCost * 100 : null;
+          const retDiff = retB !== null && retA !== null ? retB - retA : null;
+          return `<div class="drip-analysis-row">
+            <span><strong>${code}</strong> <span style="font-size:11px;color:var(--text3)">${esc(b.name)}</span></span>
+            <span style="text-align:right;font-weight:600">$${avgB.toFixed(2)}</span>
+            <span style="text-align:right;color:var(--text2)">$${avgA.toFixed(2)}</span>
+            <span style="text-align:right;color:var(--income-fg);font-weight:700">-$${diff.toFixed(2)}</span>
+            <span style="text-align:right;font-weight:600;color:${retB>=0?'var(--income-fg)':'var(--exp-fg)'}">${retB !== null ? (retB>=0?'+':'')+retB.toFixed(2)+'%' : '—'}</span>
+            <span style="text-align:right;color:var(--text2)">${retA !== null ? (retA>=0?'+':'')+retA.toFixed(2)+'%' : '—'}${retDiff!==null?' <span style="font-size:11px;color:var(--income-fg)">(+'+retDiff.toFixed(2)+'%)</span>':''}</span>
+          </div>`;
+        }).join('');
+    }
+  }
+
+  // ── 本金回收率
+  const recoveryEl = document.getElementById('drip-recovery-rows');
+  if (recoveryEl) {
+    const holdings = calcHoldings();
+    const divByCode = {};
+    dividends.forEach(d => { divByCode[d.code] = (divByCode[d.code] || 0) + d.total; });
+    const divInfoAll = load('fin_stock_dividends_v3', {});
+
+    const rows = Object.entries(holdings)
+      .map(([code, h]) => {
+        const received     = divByCode[code] || 0;
+        const rate         = h.totalCost > 0 ? received / h.totalCost * 100 : 0;
+        const divInfo      = divInfoAll[code] || (window.STOCK_DIVIDENDS || {})[code] || null;
+        const annualDiv    = divInfo ? Math.round(h.shares * divInfo.lastDiv * divInfo.timesPerYear) : null;
+        const annualRate   = annualDiv && h.totalCost > 0 ? annualDiv / h.totalCost * 100 : null;
+        const yearsLeft    = annualRate && rate < 100 ? ((100 - rate) / annualRate) : null;
+        return { code, name: h.name, cost: h.totalCost, received, rate, annualDiv, annualRate, yearsLeft };
+      })
+      .sort((a, b) => b.rate - a.rate);
+
+    if (!rows.length) {
+      recoveryEl.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">尚無持倉資料</div>';
+    } else {
+      recoveryEl.innerHTML =
+        `<div class="drip-recovery-head">
+          <span>股票</span>
+          <span style="text-align:right">投入成本</span>
+          <span style="text-align:right">累計股息</span>
+          <span>回收進度</span>
+          <span style="text-align:right">年回收速度</span>
+          <span style="text-align:right">預估回本</span>
+        </div>` +
+        rows.map(r => {
+          const pct     = Math.min(r.rate, 100);
+          const barColor = pct >= 50 ? '#10b981' : pct >= 20 ? '#3b82f6' : '#94a3b8';
+          const yearsStr = r.yearsLeft !== null
+            ? (r.yearsLeft < 1 ? '不到 1 年' : r.yearsLeft.toFixed(1) + ' 年')
+            : '—';
+          return `<div class="drip-recovery-row">
+            <span><strong>${r.code}</strong> <span style="font-size:11px;color:var(--text3)">${esc(r.name)}</span></span>
+            <span style="text-align:right;color:var(--text2)">$${fmt(Math.round(r.cost))}</span>
+            <span style="text-align:right;font-weight:600;color:var(--income-fg)">$${fmt(r.received)}</span>
+            <span>
+              <div style="display:flex;align-items:center;gap:6px">
+                <div style="flex:1;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden">
+                  <div style="height:100%;width:${pct.toFixed(1)}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
+                </div>
+                <span style="font-size:12px;font-weight:700;color:${barColor};min-width:38px">${r.rate.toFixed(1)}%</span>
+              </div>
+            </span>
+            <span style="text-align:right;font-size:12px;color:var(--text2)">${r.annualRate ? r.annualRate.toFixed(1)+'%/年' : '—'}</span>
+            <span style="text-align:right;font-weight:600">${yearsStr}</span>
+          </div>`;
+        }).join('');
+    }
+  }
 }
 
 function openDripModal() {
