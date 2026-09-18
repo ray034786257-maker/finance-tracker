@@ -183,6 +183,21 @@ body {
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   background: var(--bg); color: var(--text); cursor: pointer;
 }
+.filter-amount-wrap {
+  display: flex; align-items: center;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg); overflow: hidden;
+}
+.filter-amount-prefix {
+  padding: 6px 6px 6px 10px; font-size: 13px; color: var(--text3);
+  white-space: nowrap; user-select: none;
+}
+.filter-amount-input {
+  padding: 6px 8px 6px 0; font-size: 13px; width: 80px;
+  border: none; background: transparent; color: var(--text); outline: none;
+}
+.filter-amount-input::-webkit-outer-spin-button,
+.filter-amount-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
 /* ── table ── */
 .table-header, .tx-row {
@@ -511,6 +526,8 @@ body {
   #ledger-header .search-wrap { width: 100%; }
   #ledger-header .search-input { width: 100%; min-width: 0; box-sizing: border-box; }
   #ledger-header .filter-select { flex: 1; min-width: 100px; }
+  #ledger-header .filter-amount-wrap { flex: 1; min-width: 100px; }
+  #ledger-header .filter-amount-input { width: 100%; }
   #ledger-header #btn-export-csv { width: 100%; }
 
   .inv-table-head { display: none; }

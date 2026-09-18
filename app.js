@@ -1661,10 +1661,12 @@ function renderTable() {
     categories.map(c=>`<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
   catSel.value = prev;
 
-  const keyword = (document.getElementById('search-tx')?.value || '').trim().toLowerCase();
+  const keyword   = (document.getElementById('search-tx')?.value || '').trim().toLowerCase();
+  const minAmount = parseFloat(document.getElementById('filter-min-amount')?.value) || 0;
   let txs = txOfMonth(curMonth).sort((a,b)=>b.date.localeCompare(a.date));
   if(type!=='all') txs = txs.filter(t=>t.type===type);
   if(catId!=='all') txs = txs.filter(t=>t.categoryId===catId);
+  if(minAmount > 0) txs = txs.filter(t => t.amount >= minAmount);
   if(keyword) txs = txs.filter(t => {
     const cat = getCat(t.categoryId);
     return (t.note||'').toLowerCase().includes(keyword) || cat.name.toLowerCase().includes(keyword);
@@ -1848,6 +1850,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   ['filter-type','filter-cat'].forEach(id=>{
     document.getElementById(id).addEventListener('change', renderTable);
   });
+  document.getElementById('filter-min-amount')?.addEventListener('input', renderTable);
 
   // 匯出 CSV
   document.getElementById('btn-export-csv').addEventListener('click', ()=>{
