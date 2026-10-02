@@ -579,9 +579,9 @@
 
       <!-- 交易記錄 -->
       <div class="panel" style="margin-bottom:16px;padding:18px">
-        <div class="chart-card-title" style="margin-bottom:12px">買入記錄</div>
+        <div class="chart-card-title" style="margin-bottom:12px">交易記錄</div>
         <div class="fx-tx-head">
-          <span>日期</span><span>幣別</span><span style="text-align:right">金額</span><span style="text-align:right">買入匯率</span><span style="text-align:right">台幣成本</span><span></span>
+          <span>日期</span><span>幣別</span><span>類型</span><span style="text-align:right">金額</span><span style="text-align:right">匯率／備註</span><span style="text-align:right">台幣金額</span><span></span>
         </div>
         <div id="fx-tx-rows"></div>
       </div>
@@ -591,7 +591,13 @@
     <!-- 外幣新增 Modal -->
     <div id="fx-overlay" class="modal-overlay hidden">
       <div class="modal-box" style="max-width:360px">
-        <h3 id="fx-modal-title" class="modal-title">新增外幣</h3>
+        <h3 class="modal-title">新增外幣記錄</h3>
+        <input type="hidden" id="fx-modal-type" value="buy">
+        <!-- 類型切換 -->
+        <div class="fx-type-toggle" style="margin-bottom:16px">
+          <button id="fx-type-buy"   class="fx-type-btn active" onclick="setFxModalType('buy')">💰 買入</button>
+          <button id="fx-type-spend" class="fx-type-btn"        onclick="setFxModalType('spend')">✈️ 使用／花費</button>
+        </div>
         <div class="form-group">
           <label class="form-label">幣別</label>
           <select id="fx-code" class="form-input">
@@ -606,12 +612,16 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">買入金額（外幣）</label>
+          <label class="form-label" id="fx-amount-label">買入金額（外幣）</label>
           <input type="number" id="fx-amount" class="form-input" placeholder="例：30000" min="0" step="any">
         </div>
-        <div class="form-group">
+        <div class="form-group" id="fx-rate-group">
           <label class="form-label">買入匯率（1 外幣 = ? 台幣）<span style="color:var(--text3);font-size:11px"> 選填</span></label>
           <input type="number" id="fx-buy-rate" class="form-input" placeholder="例：0.199（不記得可留空）" min="0" step="any">
+        </div>
+        <div class="form-group" id="fx-note-group" style="display:none">
+          <label class="form-label">備註<span style="color:var(--text3);font-size:11px"> 選填</span></label>
+          <input type="text" id="fx-note" class="form-input" placeholder="例：沖繩旅遊">
         </div>
         <div class="form-group">
           <label class="form-label">日期</label>

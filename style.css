@@ -725,7 +725,7 @@ body {
 .fx-row:last-child { border-bottom: none; }
 .fx-tx-head, .fx-tx-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.2fr 1.2fr 1.2fr 44px;
+  grid-template-columns: 1fr 0.8fr 0.7fr 1.1fr 1.3fr 1.1fr 44px;
   gap: 6px;
   align-items: center;
   padding: 8px 4px;
@@ -743,6 +743,14 @@ body {
 .fx-row .fx-code { font-weight: 700; font-size: 14px; }
 .fx-row .fx-name { font-size: 11px; color: var(--text3); }
 .fx-row-actions { display: flex; gap: 4px; justify-content: flex-end; }
+/* 外幣類型切換 */
+.fx-type-toggle { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.fx-type-btn { flex: 1; padding: 8px 4px; font-size: 13px; border: none; background: var(--bg); color: var(--text2); cursor: pointer; transition: background 0.15s, color 0.15s; }
+.fx-type-btn.active { background: var(--accent); color: #fff; font-weight: 600; }
+.fx-type-btn:first-child { border-right: 1px solid var(--border); }
+/* 交易類型徽章 */
+.fx-badge-buy   { display:inline-block; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:600; background:#e8f5e9; color:#388e3c; }
+.fx-badge-spend { display:inline-block; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:600; background:#fff3e0; color:#e65100; }
 @media (max-width: 600px) {
   .fx-tbl-head { display: none; }
   .fx-row {

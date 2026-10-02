@@ -826,18 +826,26 @@ function buildScheduleFromPatterns() {
   // 從 prices.js 讀取已確認的除息資料（由每月排程更新）
   const confirmedList = (window.UPCOMING_DIVIDENDS || []).filter(e => new Date(e.payDate) >= today);
   confirmedList.forEach(e => schedule.push({ ...e, confirmed: true }));
-  const confirmedCodes = new Set(confirmedList.map(e => e.code));
 
-  // 其餘代號用歷史頻率估算（±7天誤差）
+  // 已確認除息日的 Set（用於防止重複計算同一批次）
+  const confirmedExKeys = new Set(confirmedList.map(e => `${e.code}_${e.exDate}`));
+
+  // 對所有代號推算下一次未確認除息：
+  // - 若有確認項目 → 以確認除息日為基礎推算「下下次」
+  // - 若無確認項目 → 以 STOCK_DIV_PATTERNS.lastEx 推算「下次」
   Object.entries(STOCK_DIV_PATTERNS).forEach(([code, cfg]) => {
-    if (confirmedCodes.has(code)) return; // 已有確認資料，略過估算
     if (!cfg.lastEx) return;
-    const nextExD = new Date(cfg.lastEx);
+    const confirmedEntry = confirmedList.find(e => e.code === code);
+    const baseEx  = confirmedEntry ? confirmedEntry.exDate : cfg.lastEx;
+    const nextExD = new Date(baseEx);
     nextExD.setDate(nextExD.getDate() + cfg.intervalDays);
     const nextPayD = new Date(nextExD);
     nextPayD.setDate(nextPayD.getDate() + cfg.payOffset);
+    const nextExStr = _fmtD(nextExD);
+    // 若推算出的日期剛好是已確認的項目，不重複加入
+    if (confirmedExKeys.has(`${code}_${nextExStr}`)) return;
     if (nextExD >= today) {
-      schedule.push({ code, name: cfg.name, exDate: _fmtD(nextExD), payDate: _fmtD(nextPayD), perShare: cfg.lastPerShare, confirmed: false });
+      schedule.push({ code, name: cfg.name, exDate: nextExStr, payDate: _fmtD(nextPayD), perShare: cfg.lastPerShare, confirmed: false });
     }
   });
 
@@ -2179,24 +2187,29 @@ function renderFx() {
     bar.style.display = 'block';
   }
 
-  // ── 買入記錄
+  // ── 交易記錄（買入＋使用）
   if (!txRowsEl) return;
   const sorted = [...fxTxs].sort((a, b) => b.date.localeCompare(a.date));
   txRowsEl.innerHTML = sorted.map(t => {
-    const meta = FX_META[t.code] || { name: t.code, flag: '💵' };
-    const rateStr = t.buyRate != null
+    const meta    = FX_META[t.code] || { name: t.code, flag: '💵' };
+    const txType  = t.type || 'buy';
+    const isSpend = txType === 'spend';
+    const rateStr = !isSpend && t.buyRate != null
       ? (t.code === 'JPY' ? (t.buyRate * 100).toFixed(3) + ' /100' : t.buyRate.toFixed(4))
-      : '—';
-    const costStr = t.twdCost ? fmt(t.twdCost) : '—';
+      : (isSpend ? (t.note || '—') : '—');
+    const costStr = !isSpend && t.twdCost ? fmt(t.twdCost) : '—';
+    const amtColor = isSpend ? 'color:#e65100;font-weight:600' : 'font-weight:600';
+    const amtPrefix = isSpend ? '−' : '+';
     return `<div class="fx-tx-row">
       <span style="color:var(--text2)">${t.date}</span>
       <span>${meta.flag} ${t.code}</span>
-      <span style="text-align:right;font-weight:600">${fmtFxAmt(t.code, t.amount)}</span>
+      <span>${isSpend ? '<span class="fx-badge-spend">✈️ 使用</span>' : '<span class="fx-badge-buy">💰 買入</span>'}</span>
+      <span style="text-align:right;${amtColor}">${amtPrefix}${fmtFxAmt(t.code, t.amount)}</span>
       <span style="text-align:right;color:var(--text2)">${rateStr}</span>
       <span style="text-align:right">${costStr}</span>
       <div style="text-align:right"><button class="icon-btn" onclick="deleteFxTx('${t.id}')">🗑️</button></div>
     </div>`;
-  }).join('') || '<div style="color:var(--text3);font-size:13px;padding:12px 4px">尚無買入記錄</div>';
+  }).join('') || '<div style="color:var(--text3);font-size:13px;padding:12px 4px">尚無交易記錄</div>';
 }
 
 function fmtFxAmt(code, amount) {
@@ -2227,13 +2240,23 @@ async function refreshFxRates() {
 }
 
 function openFxModal() {
-  document.getElementById('fx-modal-title').textContent = '新增外幣';
   document.getElementById('fx-code').value    = 'JPY';
   document.getElementById('fx-amount').value  = '';
   document.getElementById('fx-buy-rate').value = '';
+  document.getElementById('fx-note').value    = '';
   document.getElementById('fx-date').value    = new Date().toISOString().slice(0, 10);
+  setFxModalType('buy');
   document.getElementById('fx-overlay').classList.remove('hidden');
   document.getElementById('fx-amount').focus();
+}
+
+function setFxModalType(type) {
+  document.getElementById('fx-modal-type').value = type;
+  document.getElementById('fx-type-buy').classList.toggle('active', type === 'buy');
+  document.getElementById('fx-type-spend').classList.toggle('active', type === 'spend');
+  document.getElementById('fx-amount-label').textContent = type === 'buy' ? '買入金額（外幣）' : '使用金額（外幣）';
+  document.getElementById('fx-rate-group').style.display = type === 'buy' ? '' : 'none';
+  document.getElementById('fx-note-group').style.display = type === 'spend' ? '' : 'none';
 }
 
 function closeFxModal() {
@@ -2245,26 +2268,36 @@ function confirmFxModal() {
   const amount  = parseFloat(document.getElementById('fx-amount').value);
   const buyRate = parseFloat(document.getElementById('fx-buy-rate').value) || null;
   const date    = document.getElementById('fx-date').value;
+  const note    = document.getElementById('fx-note').value.trim();
+  const type    = document.getElementById('fx-modal-type').value || 'buy';
   if (!amount || amount <= 0) { alert('請輸入有效金額'); return; }
   if (!date) { alert('請選擇日期'); return; }
 
-  // 新增買入記錄
-  const twdCost = (buyRate && amount) ? Math.round(amount * buyRate) : null;
-  fxTxs.push({ id: uid(), date, code, amount, buyRate, twdCost });
-
-  // 更新持倉：加總金額，重算加權均價
-  const existing = fxHoldings.find(h => h.code === code);
-  if (existing) {
-    if (buyRate != null && existing.avgBuyRate != null) {
-      // 加權平均買入匯率
-      existing.avgBuyRate = (existing.avgBuyRate * existing.amount + buyRate * amount) / (existing.amount + amount);
-    } else if (buyRate != null && existing.avgBuyRate == null) {
-      // 舊持倉無成本，以此筆為基準（只算這筆的部分）
-      existing.avgBuyRate = buyRate * amount / (existing.amount + amount);
+  if (type === 'spend') {
+    // 使用外幣：從持倉扣除
+    const h = fxHoldings.find(x => x.code === code);
+    if (!h || h.amount < amount - 0.0001) {
+      alert(`持有 ${code} 不足（目前 ${h ? fmtFxAmt(code, h.amount) : '0'}），無法記錄花費`);
+      return;
     }
-    existing.amount += amount;
+    fxTxs.push({ id: uid(), date, code, amount, type: 'spend', note });
+    h.amount -= amount;
+    if (h.amount < 0.001) fxHoldings = fxHoldings.filter(x => x.code !== code);
   } else {
-    fxHoldings.push({ id: uid(), code, amount, avgBuyRate: buyRate });
+    // 買入：新增記錄，更新持倉加權均價
+    const twdCost = (buyRate && amount) ? Math.round(amount * buyRate) : null;
+    fxTxs.push({ id: uid(), date, code, amount, buyRate, twdCost, type: 'buy' });
+    const existing = fxHoldings.find(h => h.code === code);
+    if (existing) {
+      if (buyRate != null && existing.avgBuyRate != null) {
+        existing.avgBuyRate = (existing.avgBuyRate * existing.amount + buyRate * amount) / (existing.amount + amount);
+      } else if (buyRate != null && existing.avgBuyRate == null) {
+        existing.avgBuyRate = buyRate * amount / (existing.amount + amount);
+      }
+      existing.amount += amount;
+    } else {
+      fxHoldings.push({ id: uid(), code, amount, avgBuyRate: buyRate });
+    }
   }
 
   saveFx();
@@ -2275,13 +2308,20 @@ function confirmFxModal() {
 function deleteFxTx(id) {
   const tx = fxTxs.find(t => t.id === id);
   if (!tx) return;
-  if (!confirm(`確定刪除這筆 ${tx.code} 買入記錄？`)) return;
+  const isSpend = (tx.type || 'buy') === 'spend';
+  if (!confirm(`確定刪除這筆 ${tx.code} ${isSpend ? '使用' : '買入'}記錄？`)) return;
   fxTxs = fxTxs.filter(t => t.id !== id);
-  // 從持倉扣回金額（均價不反算，保留現有）
   const h = fxHoldings.find(x => x.code === tx.code);
-  if (h) {
-    h.amount = Math.max(0, h.amount - tx.amount);
-    if (h.amount === 0) fxHoldings = fxHoldings.filter(x => x.code !== tx.code);
+  if (isSpend) {
+    // 刪除使用記錄 → 還原持倉金額
+    if (h) { h.amount += tx.amount; }
+    else    { fxHoldings.push({ id: uid(), code: tx.code, amount: tx.amount, avgBuyRate: null }); }
+  } else {
+    // 刪除買入記錄 → 從持倉扣回（均價不反算）
+    if (h) {
+      h.amount = Math.max(0, h.amount - tx.amount);
+      if (h.amount < 0.001) fxHoldings = fxHoldings.filter(x => x.code !== tx.code);
+    }
   }
   saveFx();
   renderFx();
