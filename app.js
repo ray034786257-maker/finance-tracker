@@ -219,6 +219,7 @@ function persist() {
   save('fin_tx', transactions);
   save('fin_cats', categories);
   save('fin_budgets', budgets);
+  localStorage.setItem('fin_last_modified', Date.now());
   cloudSave();
 }
 
@@ -227,6 +228,7 @@ function persistStock() {
   save('fin_dividends', dividends);
   save('fin_stock_prices', stockPrices);
   if (stockDividends) save('fin_stock_dividends_v3', stockDividends);
+  localStorage.setItem('fin_last_modified', Date.now());
   cloudSave();
 }
 
@@ -247,19 +249,30 @@ function setSyncStatus(status) {
 
 function cloudSave() {
   if (!window.cloudSync) return Promise.resolve();
-  // 未登入時不儲存（頁面初始化階段）
   try { if (!firebase.auth().currentUser) return Promise.resolve(); } catch(e) { return Promise.resolve(); }
   setSyncStatus('syncing');
-  // 安全取值（避免變數尚未宣告時出錯）
-  const _recurring = typeof recurring !== 'undefined' ? recurring : [];
+  const _recurring          = typeof recurring          !== 'undefined' ? recurring          : [];
+  const _fxHoldings         = typeof fxHoldings         !== 'undefined' ? fxHoldings         : [];
+  const _fxTxs              = typeof fxTxs              !== 'undefined' ? fxTxs              : [];
+  const _fxRates            = typeof fxRates            !== 'undefined' ? fxRates            : {};
+  const _fxUpdated          = typeof fxUpdated          !== 'undefined' ? fxUpdated          : null;
+  const _dripRecords        = typeof dripRecords        !== 'undefined' ? dripRecords        : [];
+  const _upcomingDivSchedule= typeof upcomingDivSchedule!== 'undefined' ? upcomingDivSchedule: [];
   return Promise.all([
-    window.cloudSync.save('transactions', transactions),
-    window.cloudSync.save('categories',   categories),
-    window.cloudSync.save('budgets',      budgets),
-    window.cloudSync.save('stockTxs',     stockTxs),
-    window.cloudSync.save('dividends',    dividends),
-    window.cloudSync.save('stockPrices',  stockPrices),
-    window.cloudSync.save('recurring',    _recurring),
+    window.cloudSync.save('transactions',        transactions),
+    window.cloudSync.save('categories',          categories),
+    window.cloudSync.save('budgets',             budgets),
+    window.cloudSync.save('stockTxs',            stockTxs),
+    window.cloudSync.save('dividends',           dividends),
+    window.cloudSync.save('stockPrices',         stockPrices),
+    window.cloudSync.save('recurring',           _recurring),
+    window.cloudSync.save('fxHoldings',          _fxHoldings),
+    window.cloudSync.save('fxTxs',               _fxTxs),
+    window.cloudSync.save('fxRates',             _fxRates),
+    window.cloudSync.save('fxUpdated',           _fxUpdated),
+    window.cloudSync.save('dripRecords',         _dripRecords),
+    window.cloudSync.save('upcomingDivSchedule', _upcomingDivSchedule),
+    window.cloudSync.save('_meta', { lastModified: Date.now() }),
   ]).then(() => setSyncStatus('ok'))
     .catch(e => { console.error('[cloudSave]', e); setSyncStatus('error'); });
 }
@@ -269,38 +282,55 @@ async function cloudLoad() {
   setSyncStatus('syncing');
   try {
     const data = await window.cloudSync.loadAll();
-    if (!data || !data.transactions || data.transactions.length < 5) {
-      // 雲端無資料或資料太少 → 把本地資料推上去
-      if (transactions.length > 0) {
-        await cloudSave();
-        setSyncStatus('ok');
-      } else {
-        setSyncStatus('offline');
-      }
+    if (!data || !data.transactions) {
+      // 雲端無資料 → 把本地資料推上去
+      if (transactions.length > 0) { await cloudSave(); }
+      else { setSyncStatus('offline'); }
       return;
     }
-    // 雲端有資料（以筆數較多者為主）
-    if (data.transactions.length >= transactions.length) {
-      transactions = data.transactions;
-      categories   = data.categories   || categories;
-      budgets      = data.budgets      || budgets;
-      stockTxs     = data.stockTxs     || stockTxs;
-      dividends    = data.dividends    || dividends;
-      stockPrices  = data.stockPrices  || stockPrices;
-      recurring    = data.recurring    || recurring;
-      save('fin_tx',          transactions);
-      save('fin_cats',        categories);
-      save('fin_budgets',     budgets);
-      save('fin_stock_tx',    stockTxs);
-      save('fin_dividends',   dividends);
-      save('fin_stock_prices',stockPrices);
-      save('fin_recurring',   recurring);
+
+    // 以 lastModified 時間戳判斷哪份資料較新
+    const cloudTs = data._meta?.lastModified || 0;
+    const localTs = parseInt(localStorage.getItem('fin_last_modified') || '0', 10);
+
+    if (cloudTs >= localTs) {
+      // 雲端較新或相同 → 載入雲端資料
+      transactions       = data.transactions             || transactions;
+      categories         = data.categories               || categories;
+      budgets            = data.budgets                  || budgets;
+      stockTxs           = data.stockTxs                 || stockTxs;
+      dividends          = data.dividends                || dividends;
+      stockPrices        = data.stockPrices              || stockPrices;
+      recurring          = data.recurring                || recurring;
+      fxHoldings         = data.fxHoldings               || fxHoldings;
+      fxTxs              = data.fxTxs                    || fxTxs;
+      fxRates            = data.fxRates                  || fxRates;
+      fxUpdated          = data.fxUpdated                || fxUpdated;
+      dripRecords        = data.dripRecords              || dripRecords;
+      upcomingDivSchedule= data.upcomingDivSchedule      || upcomingDivSchedule;
+      save('fin_tx',                   transactions);
+      save('fin_cats',                 categories);
+      save('fin_budgets',              budgets);
+      save('fin_stock_tx',             stockTxs);
+      save('fin_dividends',            dividends);
+      save('fin_stock_prices',         stockPrices);
+      save('fin_recurring',            recurring);
+      save('fin_fx_v2',                fxHoldings);
+      save('fin_fx_tx',                fxTxs);
+      save('fin_fx_rates',             fxRates);
+      if (fxUpdated) save('fin_fx_updated', fxUpdated);
+      save('fin_drip',                 dripRecords);
+      save('fin_upcoming_div_schedule',upcomingDivSchedule);
+      localStorage.setItem('fin_last_modified', cloudTs);
       setSyncStatus('ok');
       renderAll();
+      if (typeof renderFx       === 'function') renderFx();
+      if (typeof renderDrip     === 'function') renderDrip();
+      if (typeof renderUpcomingDividends === 'function') renderUpcomingDividends();
     } else {
-      // 本地資料比雲端多 → 推上去
+      // 本地較新 → 推上去並更新時間戳
+      localStorage.setItem('fin_last_modified', Date.now());
       await cloudSave();
-      setSyncStatus('ok');
     }
   } catch(e) {
     console.error('[cloudLoad]', e);
@@ -2121,6 +2151,8 @@ function saveFx() {
   save('fin_fx_tx', fxTxs);
   save('fin_fx_rates', fxRates);
   save('fin_fx_updated', fxUpdated);
+  localStorage.setItem('fin_last_modified', Date.now());
+  cloudSave();
 }
 
 function renderFx() {
@@ -2353,7 +2385,11 @@ const DRIP_STOCKS = {
 
 let dripRecords = load('fin_drip', []);
 
-function saveDrip() { save('fin_drip', dripRecords); }
+function saveDrip() {
+  save('fin_drip', dripRecords);
+  localStorage.setItem('fin_last_modified', Date.now());
+  cloudSave();
+}
 
 function initDripData() {
   if (load('fin_drip_imported_v1', false)) return;
