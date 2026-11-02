@@ -328,6 +328,18 @@ async function cloudLoad() {
   }
 }
 
+async function forceCloudPush() {
+  if (!confirm('用「這台裝置」的資料覆蓋雲端？其他裝置的較新資料將被取代。')) return;
+  await cloudSave();
+  if (document.getElementById('sync-label').textContent.includes('✓')) showToast('已上傳到雲端');
+}
+
+async function forceCloudPull() {
+  if (!confirm('用「雲端」的資料覆蓋這台裝置？這台未上傳的資料將消失。')) return;
+  await cloudLoad();
+  showToast('已從雲端載入');
+}
+
 // ── Toast 通知 ───────────────────────────────────────────
 function showToast(msg, duration = 3500) {
   let el = document.getElementById('app-toast');

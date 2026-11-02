@@ -28,6 +28,8 @@
       <div id="sync-status" title="雲端同步狀態" style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:4px">
         <span id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:#94a3b8;display:inline-block"></span>
         <span id="sync-label">連線中…</span>
+        <button onclick="forceCloudPush()" title="用這台裝置的資料覆蓋雲端" style="border:1px solid var(--border);background:none;border-radius:6px;font-size:11px;padding:2px 6px;cursor:pointer;color:var(--text2)">⬆上傳</button>
+        <button onclick="forceCloudPull()" title="用雲端資料覆蓋這台裝置" style="border:1px solid var(--border);background:none;border-radius:6px;font-size:11px;padding:2px 6px;cursor:pointer;color:var(--text2)">⬇載入</button>
       </div>
       <button id="btn-add-quick" class="btn-primary-sm">＋ 新增記錄</button>
     </div>
