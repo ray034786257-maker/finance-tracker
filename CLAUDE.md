@@ -1,18 +1,37 @@
 # 個人記帳本 — 專案說明
 
 ## 專案概覽
-純靜態 HTML/CSS/JS 個人記帳 App，雙擊 `index.html` 即可使用，無需伺服器。
-資料儲存在瀏覽器 localStorage，完全離線。
+純靜態 HTML/CSS/JS 個人記帳 App，無建置流程。
+- 本機 `file://` 開啟：純 localStorage 模式，不登入、不同步。
+- 網頁版（GitHub Pages `https://ray034786257-maker.github.io/finance-tracker/`）：Google 登入後，資料以 Firebase Firestore 雲端同步，多裝置共用。
+- 使用者不熟 git，部署一律由 Claude 處理。
 
 ## 檔案結構
 ```
 finance-tracker/
-├── index.html       # 主頁面（單頁，所有功能區塊由上到下排列）
-├── style.css        # 樣式（Notion 風格，白底極簡）
-├── app.js           # 所有邏輯（資料、渲染、事件）
-├── prices.js        # 股價資料（由每日排程自動覆寫）
-└── import.html      # 一次性資料匯入頁（已使用，可忽略）
+├── index.html         # 主頁面（單頁，所有功能區塊由上到下排列）
+├── style.css          # 樣式（Notion 風格，白底極簡）
+├── app.js             # 所有邏輯（資料、渲染、事件、雲端同步）
+├── firebase-config.js # Firebase 初始化、Google 登入、cloudSync（save/load/loadAll）
+├── prices.js          # 股價／配息資料（由排程自動覆寫）
+└── import.html        # 一次性資料匯入頁（已使用，可忽略）
 ```
+
+## 部署流程
+- `finance-tracker` 是 git repo（remote: `ray034786257-maker/finance-tracker`，分支 `main`）。
+- 修改後 `git add` → `commit` → `git push origin main`，GitHub Pages 約 1～2 分鐘更新；使用者需 `Ctrl+Shift+R` 強制重整（手機易卡舊快取）。
+- 這台電腦沒有 Node/Python，無法用 `node --check` 檢查語法；可在瀏覽器 `javascript_tool` 用 `new Function(src)` 驗證片段。
+- commit 訊息結尾加 `Co-Authored-By` 行。
+
+## 雲端同步（Firestore）
+- 同步單位是「整包資料」，`cloudSave()` 一次寫入所有資料集，`cloudLoad()`（登入後觸發）以雲端為準覆蓋本機。
+- **新增要同步的資料時，`cloudSave` 與 `cloudLoad` 兩處都要改**，否則該資料不會跨裝置。目前同步：transactions、categories、budgets、stockTxs、dividends、stockPrices、recurring、fxHoldings、fxTxs、fxRates、fxUpdated、dripRecords、upcomingDivSchedule。
+- 防護機制（勿移除）：
+  - `cloudLoaded` 旗標：本次尚未成功讀過雲端前，`cloudSave()` 不上傳（避免舊資料覆蓋新資料）。
+  - 雲端覆蓋本機前，內容不同會先備份到 `fin_backups`（保留最近 3 份）。
+  - `cloudSync.save/loadAll` 失敗會丟出錯誤並以 toast 顯示，不可再靜默吞掉（曾造成「顯示已同步但其實沒寫入」）。
+  - 頂列按鈕：⬆上傳（強制以本機覆蓋雲端）、⬇載入（強制以雲端覆蓋本機）、💾備份（下載 JSON）、📂還原。
+- 事故教訓：2026-11 曾因舊裝置的整包資料覆蓋雲端，導致 10/23～11/2 的收支遺失且無法還原。不要改回「最後寫入者贏」且無防護的做法；若 Firestore 啟用 Point-in-time recovery 才有可能還原。
 
 ## localStorage 資料結構
 | Key | 內容 |
@@ -24,6 +43,13 @@ finance-tracker/
 | `fin_dividends` | 股息記錄 `[{id, code, name, date, perShare, shares, total, note}]` |
 | `fin_stock_prices` | 股票現價 `{code: price}` |
 | `fin_stock_dividends_v3` | 配息資訊 `{code: {lastDiv, timesPerYear, frequency}}`（v3 = 最新版） |
+| `fin_recurring` | 固定費用 |
+| `fin_fx_v2` | 外幣持倉 `[{id, code, amount, avgBuyRate}]` |
+| `fin_fx_tx` | 外幣交易 `[{id, date, code, amount, type:'buy'\|'spend', buyRate, twdCost, note}]`；無 `type` 視為 buy；刪除 spend 會還原持倉 |
+| `fin_fx_rates` / `fin_fx_updated` | 外幣匯率與更新時間 |
+| `fin_drip` | 股息再投入記錄 |
+| `fin_upcoming_divs_v2` | 即將除息提醒（含 `recorded` / `recordedShares`） |
+| `fin_backups` | 雲端載入前的本機備份（不同步） |
 | `fin_imported_2026_v4` | 匯入版本 flag |
 | `fin_stocks_imported_v1` | 股票初始匯入 flag |
 
@@ -78,12 +104,31 @@ window.PRICES_UPDATED    = "YYYY-MM-DD HH:MM"
 - 更新排程時需同時更新 `STOCK_PREV_PRICES`（昨收）才能顯示今日漲跌幅
 
 ## 每日排程
-- **daily-stock-price-update**：每天 09:00 自動查詢股價並更新 `prices.js`
+- **daily-stock-price-update**：每天 09:00 自動查詢股價並更新 `prices.js`（會覆寫整個檔案，手動修改 `prices.js` 時注意排程是否已更新過）
+- `prices.js` 的 `UPCOMING_DIVIDENDS`（已確認的除息資料）原則上每月更新；手動更新配息時，需用網路搜尋核對除息日、發放日、金額
 
 ## 新增月份資料的方式
 1. 在 `app.js` 的 `autoImport()` 的 `raw` 陣列末尾加入新月份資料
 2. 將 flag `fin_imported_2026_vN` 的版本號 +1
 3. 使用者開啟頁面後在 Console 執行 `localStorage.clear()` 再重整即可
+- ⚠️ 已有雲端同步：網頁版重整後會被雲端資料覆蓋，且清除前務必先 💾備份；不要在未確認雲端資料的情況下清除並上傳。
+
+## 配息提醒設計
+- 已確認資料：`prices.js` 的 `window.UPCOMING_DIVIDENDS`（`confirmed: true`，payDate 已過會自動隱藏）。
+- 預估資料：`app.js` 的 `STOCK_DIV_PATTERNS`（`lastEx` + `intervalDays` 推算，顯示「預估 ±7天」）。有確認項目的代號，會以該確認除息日為起點再推算下一週期，兩者並存。
+- 除息月份：0050＝1、7 月；006208＝7、11 月（半年配，間隔不固定，`intervalDays` 需在每次除息後依實際月份調整，目前 241 天用於 11 月→隔年 7 月）；0056、00878、00918 為季配。
+- 股數在記錄配息後又變動，會出現 ⚠️ 與「更新記錄」按鈕（比對 `recordedShares`）。
+- 「記錄配息」只寫入 `fin_dividends`，**不會**自動新增記帳明細的收入（使用者刻意維持）。
+
+## 成本與回收率計算
+- 預設（方法 B）：股息再投入（`reinvest`）只增加股數，不增加成本，平均成本下降；`calcHoldings()`。
+- 對照（方法 A，會計角度）：再投入同時增加股數與成本；`calcHoldingsMethodA()`，顯示於 DRIP 分析頁。
+- 本金回收率：分母為 `calcHistoricalInvested()`（只加總歷史 `buy`，賣股後不縮小），拆成股息、價差、合計三條。
+
+## 使用者偏好
+- 偏好繁體中文對話；回答簡短直接。
+- 0056 等股息不再投入，用於生活開銷；記帳時股息與支出分開記，除非使用者要求自動化。
+- 提出方案後，使用者常回「好 / 就這樣做」再實作；未同意前不要先改程式。
 
 ## 投資追蹤功能說明
 - **更新股價按鈕**：優先呼叫台灣證交所即時 API（`mis.twse.com.tw`），備援 Yahoo Finance + corsproxy.io
