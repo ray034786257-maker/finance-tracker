@@ -24,7 +24,7 @@ window.STOCK_DIVIDENDS = {
   "0056":   { lastDiv: 1.72,  timesPerYear: 4,  frequency: '每季配息'   }, // 2026 Q4 配 $1.72，10/22 除息，11/11 發放（單季新高）
   "00918":  { lastDiv: 1.75,  timesPerYear: 4,  frequency: '每季配息'   }, // 2026/09/18 除息 $1.75（Q3），2026/10/15 已發放
   "006208": { lastDiv: 4.75,  timesPerYear: 2,  frequency: '每半年配息' }, // 2026/07/16 除息 $4.75，2026/08/10 發放
-  "00878":  { lastDiv: 1.01,  timesPerYear: 4,  frequency: '每季配息'   }, // 2026/08/18 除息 $1.01（Q3），2026/09/11 已發放；Q4預定11月中除息（金額未公告，預計10月底公告）
+  "00878":  { lastDiv: 1.01,  timesPerYear: 4,  frequency: '每季配息'   }, // 2026/08/18 除息 $1.01（Q3），2026/09/11 已發放；Q4：11/16最後買進、11/17除息、預計12/11發放（金額尚未公告，2026-11-02查）
   "009816": { lastDiv: 0,     timesPerYear: 0,  frequency: '不配息（累積型）' } // 009816 為不配息累積型ETF
 };
 window.PRICES_UPDATED = "2026-10-23 10:05";
