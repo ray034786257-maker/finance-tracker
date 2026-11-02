@@ -888,8 +888,8 @@ function checkMonthlyReminder() {
 const STOCK_DIV_PATTERNS = {
   '0050':   { name: '元大台灣50',        lastEx: '2026-07-21', lastPerShare: 0.60,  intervalDays: 182, payOffset: 20 },
   '0056':   { name: '元大高股息',         lastEx: '2026-07-21', lastPerShare: 1.35,  intervalDays: 91,  payOffset: 21 },
-  '006208': { name: '富邦台50',           lastEx: '2026-07-16', lastPerShare: 4.75,  intervalDays: 124, payOffset: 24 },
-  '00878':  { name: '國泰永續高股息',     lastEx: '2026-08-18', lastPerShare: 1.01,  intervalDays: 91,  payOffset: 24 },
+  '006208': { name: '富邦台50',           lastEx: '2026-11-17', lastPerShare: 3.88,  intervalDays: 241, payOffset: 24 },
+  '00878':  { name: '國泰永續高股息',     lastEx: '2026-08-18', lastPerShare: 1.25,  intervalDays: 91,  payOffset: 24 },
   '009816': { name: '凱基台灣TOP50',      lastEx: null,         lastPerShare: null,  intervalDays: 91,  payOffset: 25 },
   '00918':  { name: '大華優利高填息30',   lastEx: '2026-09-18', lastPerShare: 1.75,  intervalDays: 91,  payOffset: 27 },
 };
