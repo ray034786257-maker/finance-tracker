@@ -30,6 +30,9 @@
         <span id="sync-label">連線中…</span>
         <button onclick="forceCloudPush()" title="用這台裝置的資料覆蓋雲端" style="border:1px solid var(--border);background:none;border-radius:6px;font-size:11px;padding:2px 6px;cursor:pointer;color:var(--text2)">⬆上傳</button>
         <button onclick="forceCloudPull()" title="用雲端資料覆蓋這台裝置" style="border:1px solid var(--border);background:none;border-radius:6px;font-size:11px;padding:2px 6px;cursor:pointer;color:var(--text2)">⬇載入</button>
+        <button onclick="exportBackup()" title="下載備份檔" style="border:1px solid var(--border);background:none;border-radius:6px;font-size:11px;padding:2px 6px;cursor:pointer;color:var(--text2)">💾備份</button>
+        <button onclick="document.getElementById('backup-file').click()" title="從備份檔還原" style="border:1px solid var(--border);background:none;border-radius:6px;font-size:11px;padding:2px 6px;cursor:pointer;color:var(--text2)">📂還原</button>
+        <input type="file" id="backup-file" accept=".json" style="display:none" onchange="importBackup(this)">
       </div>
       <button id="btn-add-quick" class="btn-primary-sm">＋ 新增記錄</button>
     </div>

@@ -247,9 +247,12 @@ function setSyncStatus(status) {
   label.textContent    = s.text;
 }
 
-function cloudSave() {
+let cloudLoaded = false;
+
+function cloudSave(force = false) {
   if (!window.cloudSync) return Promise.resolve();
   try { if (!firebase.auth().currentUser) return Promise.resolve(); } catch(e) { return Promise.resolve(); }
+  if (!force && !cloudLoaded) return Promise.resolve();
   setSyncStatus('syncing');
   const _recurring          = typeof recurring          !== 'undefined' ? recurring          : [];
   const _fxHoldings         = typeof fxHoldings         !== 'undefined' ? fxHoldings         : [];
@@ -282,6 +285,7 @@ async function cloudLoad() {
   setSyncStatus('syncing');
   try {
     const data = await window.cloudSync.loadAll();
+    cloudLoaded = true;
     if (!data || !data.transactions) {
       // 雲端無資料 → 把本地資料推上去
       if (transactions.length > 0) { await cloudSave(); }
@@ -289,7 +293,16 @@ async function cloudLoad() {
       return;
     }
 
-    // 雲端有資料 → 直接以雲端為主（雲端是唯一真相來源）
+    // 覆蓋前先備份本機資料（內容不同時才備份，保留最近 3 份）
+    if (JSON.stringify(transactions) !== JSON.stringify(data.transactions)) {
+      try {
+        const backups = load('fin_backups', []);
+        backups.push({ at: new Date().toISOString(), data: collectLocalData() });
+        save('fin_backups', backups.slice(-3));
+      } catch(e) { console.warn('[backup]', e.message); }
+    }
+
+    // 雲端有資料 → 以雲端為主
     transactions        = data.transactions              || transactions;
     categories          = data.categories                || categories;
     budgets             = data.budgets                   || budgets;
@@ -324,13 +337,49 @@ async function cloudLoad() {
   } catch(e) {
     console.error('[cloudLoad]', e);
     setSyncStatus('error');
-    showToast('雲端讀取失敗：' + e.message, 8000);
+    showToast('雲端讀取失敗：' + e.message + '（為保護資料，本次不會上傳）', 8000);
   }
+}
+
+function collectLocalData() {
+  const out = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k.startsWith('fin_') && k !== 'fin_backups') out[k] = localStorage.getItem(k);
+  }
+  return out;
+}
+
+function exportBackup() {
+  const blob = new Blob([JSON.stringify({ at: new Date().toISOString(), data: collectLocalData() })], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `finance-backup-${today()}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importBackup(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const obj = JSON.parse(reader.result);
+      if (!obj.data || !obj.data.fin_tx) throw new Error('不是有效的備份檔');
+      if (!confirm(`用備份檔（${obj.at || '未知時間'}）覆蓋這台裝置的資料？`)) return;
+      Object.entries(obj.data).forEach(([k, v]) => localStorage.setItem(k, v));
+      alert('已還原，頁面將重新載入。還原後請按「⬆上傳」把資料同步到雲端。');
+      location.reload();
+    } catch(e) { alert('還原失敗：' + e.message); }
+  };
+  reader.readAsText(file);
 }
 
 async function forceCloudPush() {
   if (!confirm('用「這台裝置」的資料覆蓋雲端？其他裝置的較新資料將被取代。')) return;
-  await cloudSave();
+  await cloudSave(true);
   if (document.getElementById('sync-label').textContent.includes('✓')) showToast('已上傳到雲端');
 }
 
