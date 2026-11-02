@@ -69,9 +69,11 @@ if (IS_LOCAL) {
     async save(key, data) {
       if (!this.enabled) return;
       try {
-        await this.userCol().doc(key).set({ data: JSON.parse(JSON.stringify(data)) });
+        const clean = data === undefined ? null : JSON.parse(JSON.stringify(data));
+        await this.userCol().doc(key).set({ data: clean });
       } catch(e) {
         console.warn('[CloudSync] 儲存失敗:', key, e.message);
+        throw new Error(`${key}: ${e.code || e.message}`);
       }
     },
 
@@ -95,7 +97,7 @@ if (IS_LOCAL) {
         return result;
       } catch(e) {
         console.warn('[CloudSync] 全量讀取失敗:', e.message);
-        return null;
+        throw new Error(e.code || e.message);
       }
     }
   };

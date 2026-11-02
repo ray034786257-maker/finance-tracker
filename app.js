@@ -274,7 +274,7 @@ function cloudSave() {
     window.cloudSync.save('upcomingDivSchedule', _upcomingDivSchedule),
     window.cloudSync.save('_meta', { lastModified: Date.now() }),
   ]).then(() => setSyncStatus('ok'))
-    .catch(e => { console.error('[cloudSave]', e); setSyncStatus('error'); });
+    .catch(e => { console.error('[cloudSave]', e); setSyncStatus('error'); showToast('雲端儲存失敗：' + e.message, 8000); });
 }
 
 async function cloudLoad() {
@@ -289,52 +289,42 @@ async function cloudLoad() {
       return;
     }
 
-    // 以 lastModified 時間戳判斷哪份資料較新
-    const cloudTs = data._meta?.lastModified || 0;
-    const localTs = parseInt(localStorage.getItem('fin_last_modified') || '0', 10);
-
-    if (cloudTs >= localTs) {
-      // 雲端較新或相同 → 載入雲端資料
-      transactions       = data.transactions             || transactions;
-      categories         = data.categories               || categories;
-      budgets            = data.budgets                  || budgets;
-      stockTxs           = data.stockTxs                 || stockTxs;
-      dividends          = data.dividends                || dividends;
-      stockPrices        = data.stockPrices              || stockPrices;
-      recurring          = data.recurring                || recurring;
-      fxHoldings         = data.fxHoldings               || fxHoldings;
-      fxTxs              = data.fxTxs                    || fxTxs;
-      fxRates            = data.fxRates                  || fxRates;
-      fxUpdated          = data.fxUpdated                || fxUpdated;
-      dripRecords        = data.dripRecords              || dripRecords;
-      upcomingDivSchedule= data.upcomingDivSchedule      || upcomingDivSchedule;
-      save('fin_tx',                   transactions);
-      save('fin_cats',                 categories);
-      save('fin_budgets',              budgets);
-      save('fin_stock_tx',             stockTxs);
-      save('fin_dividends',            dividends);
-      save('fin_stock_prices',         stockPrices);
-      save('fin_recurring',            recurring);
-      save('fin_fx_v2',                fxHoldings);
-      save('fin_fx_tx',                fxTxs);
-      save('fin_fx_rates',             fxRates);
-      if (fxUpdated) save('fin_fx_updated', fxUpdated);
-      save('fin_drip',                 dripRecords);
-      save('fin_upcoming_div_schedule',upcomingDivSchedule);
-      localStorage.setItem('fin_last_modified', cloudTs);
-      setSyncStatus('ok');
-      renderAll();
-      if (typeof renderFx       === 'function') renderFx();
-      if (typeof renderDrip     === 'function') renderDrip();
-      if (typeof renderUpcomingDividends === 'function') renderUpcomingDividends();
-    } else {
-      // 本地較新 → 推上去並更新時間戳
-      localStorage.setItem('fin_last_modified', Date.now());
-      await cloudSave();
-    }
+    // 雲端有資料 → 直接以雲端為主（雲端是唯一真相來源）
+    transactions        = data.transactions              || transactions;
+    categories          = data.categories                || categories;
+    budgets             = data.budgets                   || budgets;
+    stockTxs            = data.stockTxs                  || stockTxs;
+    dividends           = data.dividends                 || dividends;
+    stockPrices         = data.stockPrices               || stockPrices;
+    recurring           = data.recurring                 || recurring;
+    fxHoldings          = data.fxHoldings                || fxHoldings;
+    fxTxs               = data.fxTxs                     || fxTxs;
+    fxRates             = data.fxRates                   || fxRates;
+    fxUpdated           = data.fxUpdated                 || fxUpdated;
+    dripRecords         = data.dripRecords               || dripRecords;
+    upcomingDivSchedule = data.upcomingDivSchedule       || upcomingDivSchedule;
+    save('fin_tx',                    transactions);
+    save('fin_cats',                  categories);
+    save('fin_budgets',               budgets);
+    save('fin_stock_tx',              stockTxs);
+    save('fin_dividends',             dividends);
+    save('fin_stock_prices',          stockPrices);
+    save('fin_recurring',             recurring);
+    save('fin_fx_v2',                 fxHoldings);
+    save('fin_fx_tx',                 fxTxs);
+    save('fin_fx_rates',              fxRates);
+    if (fxUpdated) save('fin_fx_updated', fxUpdated);
+    save('fin_drip',                  dripRecords);
+    save('fin_upcoming_div_schedule', upcomingDivSchedule);
+    setSyncStatus('ok');
+    renderAll();
+    if (typeof renderFx                === 'function') renderFx();
+    if (typeof renderDrip              === 'function') renderDrip();
+    if (typeof renderUpcomingDividends === 'function') renderUpcomingDividends();
   } catch(e) {
     console.error('[cloudLoad]', e);
     setSyncStatus('error');
+    showToast('雲端讀取失敗：' + e.message, 8000);
   }
 }
 
